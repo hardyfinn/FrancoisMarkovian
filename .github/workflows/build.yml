@@ -26,7 +26,9 @@ jobs:
           curl -fsSL -o sdk.zip "https://vcvrack.com/downloads/Rack-SDK-${RACK_SDK_VERSION}-mac-arm64.zip"
           unzip -q sdk.zip -d "$RUNNER_TEMP"
       - name: Test the engine
-        run: c++ -std=c++11 -O2 -o test/engine_test test/engine_test.cpp && test/engine_test
+        run: |
+          c++ -std=c++11 -O2 -o test/engine_test test/engine_test.cpp && test/engine_test
+          c++ -std=c++11 -O2 -o test/influence_test test/influence_test.cpp && test/influence_test
       - name: Build
         run: make dist RACK_DIR="$RUNNER_TEMP/Rack-SDK" -j3
       - uses: actions/upload-artifact@v4

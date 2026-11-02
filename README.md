@@ -1,6 +1,12 @@
 # Francois Markovian
 
-A VCV Rack 2 trigger sequencer (29 HP). One playhead walks an 8-step pattern
+A VCV Rack 2 plugin with two modules: **Francois Markovian**, a Markov jump
+trigger sequencer, and **Interlock**, an influence-grid trigger processor
+(see below).
+
+## Francois Markovian
+
+A trigger sequencer (29 HP). One playhead walks an 8-step pattern
 with six trigger tracks, **A to F**. On every clock pulse it picks its next step
 from a hand-set **jump matrix**, then each track rolls its own chance for the
 step it lands on. The pattern stays recognisable but gets reshuffled, like a
@@ -81,7 +87,64 @@ for syncing other gear.
 Everything is saved with the patch. Patches made with version 2.0 load with their
 matrix and hits (as 0 / 100 chances) intact.
 
-## Building
+# Interlock
+
+![Interlock panel](docs/interlock-preview.png)
+
+A 16 HP trigger processor that makes parts **answer each other**. Six triggers
+come in (A to F) and six go out. Patch Francois Markovian's outputs into it, or
+Seuperclidean's, or anything else.
+
+## The influence grid
+
+The 6 × 6 grid says "when track X fires, track Y's chance on the **next** step
+changes by this much", from −100 to +100. The **row** is the track that fired,
+and the **column** is the track that gets pushed.
+
+On every step, each track's chance is:
+
+- **100%** if a trigger came in, **0%** if not,
+- plus the influences of every track that fired recently,
+- kept between 0 and 100.
+
+So a negative influence can **hold back** an incoming trigger, and a positive one
+can add a **ghost hit** where nothing came in.
+
+Example (right-click > *Load the guide's example*):
+
+| Cell | Value | Effect |
+|---|---|---|
+| A → B | −100 | B can never play straight after A |
+| A → C | +50 | C is pushed to play after A |
+| C → C | −40 | C damps its own rolls (the diagonal is a track acting on itself) |
+| B → D | +60 | D gets ghost hits after B |
+| D → A | −30 | A is less likely after D |
+
+**Drag** a cell up (green, push) or down (red, hold back). Shift drags finely,
+and **double-click** clears a cell. A row's outline flashes when its track fires.
+The **NOW** meters under the grid show how much each track is being pushed on the current step.
+
+## Controls
+
+| Control | What it does |
+|---|---|
+| **CLOCK** | Each pulse starts a step. Unpatched, the first incoming trigger of a step starts it |
+| **RESET** | Clears the memory |
+| **AMOUNT** + **CV** | Scales the whole grid. 0 = triggers pass straight through, 100% = as drawn. 0 to 10 V adds 0 to 100% |
+| **MEMORY** | 0 = an influence lasts only the next step. 1 to 4 = it lasts that many extra steps, fading out evenly (memory 2: 100%, 67%, 33%) |
+| **IN A to F** | Incoming triggers |
+| **OUT A to F** | 5 ms triggers |
+
+Influences add up, so two tracks each pushing E by +50 give E a full 100%.
+
+**Timing:** incoming triggers are passed on (or held back) the moment they arrive,
+with no delay. Ghost hits are rolled 2 ms after the clock, so triggers coming
+from another module (which reach Interlock a sample after the clock) count
+before the ghosts are decided. Use the same clock for Interlock and the sequencer feeding it.
+
+Right-click: Clear grid, Load the guide's example, Randomise.
+
+# Building
 
 GitHub Actions tests the engine and builds the Apple Silicon version on every
 push to main (see `.github/workflows/build.yml`). The `.vcvplugin` file appears
@@ -92,3 +155,5 @@ The panel is drawn by `res/make_panel.py` (needs `pip install fonttools`).
 The sequencing engine (`src/MarkovEngine.hpp`) has no Rack dependencies, and
 `test/engine_test.cpp` checks it offline: row editing, jump odds, repeats, empty
 rows, trigger chances, evolve blending, freeze looping, reset and the clock divider.
+Interlock's engine (`src/InfluenceEngine.hpp`) is checked by `test/influence_test.cpp`,
+and its panel is drawn by `res/make_panel_interlock.py`.

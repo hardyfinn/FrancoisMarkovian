@@ -1,7 +1,7 @@
 {
   "slug": "FrancoisMarkovian",
   "name": "Francois Markovian",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "license": "GPL-3.0-or-later",
   "brand": "Haer",
   "author": "Haer",
@@ -17,7 +17,21 @@
       "slug": "FrancoisMarkovian",
       "name": "Francois Markovian",
       "description": "8-step, 6-track trigger sequencer whose playhead jumps between steps by a hand-set Markov matrix, with X/Y evolve, freeze and a clock divider",
-      "tags": ["Sequencer", "Drum", "Random"]
+      "tags": [
+        "Sequencer",
+        "Drum",
+        "Random"
+      ]
+    },
+    {
+      "slug": "Interlock",
+      "name": "Interlock",
+      "description": "Six triggers in, six out: a 6x6 influence grid where each track firing raises or lowers the others' chances on the next steps, with memory and amount",
+      "tags": [
+        "Random",
+        "Logic",
+        "Drum"
+      ]
     }
   ]
 }
