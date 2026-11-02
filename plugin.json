@@ -1,7 +1,7 @@
 {
   "slug": "FrancoisMarkovian",
   "name": "Francois Markovian",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "license": "GPL-3.0-or-later",
   "brand": "Haer",
   "author": "Haer",
@@ -16,7 +16,7 @@
     {
       "slug": "FrancoisMarkovian",
       "name": "Francois Markovian",
-      "description": "8-step, 4-lane drum sequencer whose playhead jumps between steps by a hand-set Markov matrix, with A/B evolve and freeze",
+      "description": "8-step, 6-track trigger sequencer whose playhead jumps between steps by a hand-set Markov matrix, with X/Y evolve, freeze and a clock divider",
       "tags": ["Sequencer", "Drum", "Random"]
     }
   ]

@@ -1,76 +1,85 @@
 # Francois Markovian
 
-A VCV Rack 2 drum sequencer. One playhead walks an 8-step pattern with four
-lanes (bass drum, snare, closed hat, rim). On every clock pulse it picks its
-next step from a hand-set **jump matrix**, then fires whichever lanes are on at
-the step it lands on. The pattern stays recognisable but gets reshuffled, like
-a drummer skipping around the bar.
+A VCV Rack 2 trigger sequencer (29 HP). One playhead walks an 8-step pattern
+with six trigger tracks, **A to F**. On every clock pulse it picks its next step
+from a hand-set **jump matrix**, then each track rolls its own chance for the
+step it lands on. The pattern stays recognisable but gets reshuffled, like a
+drummer skipping around the bar.
 
 ![panel](docs/panel-preview.png)
 
-## The jump matrix
+## The jump matrix (left)
 
 Each **row** is the step the playhead is on (FROM), and each **column** is a
-step it can go to (TO). Cells hold weights, and the number in a cell is the
-actual chance of that jump once the row is shared out.
+step it can go to (TO). Every cell shows its chance as a number and as a bar,
+and **each row always adds up to 100**.
 
-- **Drag a cell up or down** to set its weight. Hold Shift for fine control.
-- **Double-click** a cell to switch it between 0 and full.
-- A new module plays **straight** (each step goes to the next), so it behaves
-  like a normal sequencer until you add jumps.
+- **Drag a cell up or down** to set its chance. The rest of the row rescales to
+  make room and keeps its own balance: with 30 / 70 in a row, dragging a third
+  cell to 50 leaves 15 / 35 / 50. Hold Shift for fine control.
+- **Double-click** a cell to switch it between 0 and 100.
+- Lowering a row's only cell spreads the rest evenly over the other cells.
+- A new module plays **straight** (each step goes to the next).
 - The **diagonal** (a step going to itself) gives stutters and rolls.
-- A row with nothing in it falls back to the next step (shown as a small outlined square).
+- An empty row (after double-clicking its only cell to 0) falls back to the
+  next step, shown as a small outline.
 - The lighter row is where the playhead is now, and the white outline shows the jump it just took.
 
-Example: in row 4, put 70 in column 5 and 30 in column 1. Step 4 then goes on
-to step 5 most of the time and jumps back to the top of the bar about one time in three.
+## Trigger chances (right)
 
-## Drum hits
+Each of the 6 × 8 cells is the chance (0 to 100) that the track fires when the
+playhead lands on that step. Drag it up or down, or double-click it for 0 / 100.
+The playhead's column is lighter, and a cell flashes when it fires.
 
-Click a cell in the BD / SD / HH / RIM grid to switch a hit on or off. The
-playhead's column is lighter, and a hit flashes white when it fires.
+A new module starts with **A on step 1** and **B on step 5**, both at 100.
 
-## Snapshots A and B, and Evolve
+## Snapshots X and Y, and Evolve
 
-There are two snapshots, each with its own **matrix and hits**. The **EDIT A / B**
-switch chooses which one the grids show and edit. A small dot in a hit cell
-means the *other* snapshot has a hit there.
+There are two snapshots, each with its own **matrix and trigger chances**. The
+**EDIT X / Y** switch chooses which one the grids show and edit. A **white line**
+in a cell marks the other snapshot's value there.
 
-**EVOLVE** (knob plus CV, 0 to 10 V adds 0 to 100%) moves from A to B:
-
-- The matrix **blends smoothly**: at 50% every weight is halfway between A and B.
-- Hits that are the same in A and B always play (or never play).
-- Hits that differ **roll dice on every pass**: at 30%, a hit that's only in B
-  plays 30% of the time and a hit that's only in A plays 70% of the time.
-
-The white tick under the A / B switch shows where Evolve is.
+**EVOLVE** (knob plus CV, 0 to 10 V adds 0 to 100%) blends every matrix cell and
+every trigger chance from X to Y. A trigger at 0 in X and 100 in Y fires half the
+time at the halfway point. The white tick under the X / Y switch shows where
+Evolve is.
 
 ## Freeze
 
 The **FREEZE** button (toggle) or **GATE** input (freezes while high) loops the
-**last 8 steps exactly as they were played**, steps and hits, dice and all.
-Release it and the playhead carries on from where it is, back under the
-matrix's control. Reset while frozen restarts the loop from its start.
+**last 8 steps exactly as they were played**, steps and triggers, dice and all.
+Release it and the playhead carries on from where it is. Reset while frozen
+restarts the loop from its start.
 
-## Clock, reset and outputs
+## Clock divider
+
+**DIV** (1, 2, 4, 8, 16) and **OFFSET** (0, 1, 2, 4 pulses) set the **DIV** output:
+a trigger on every Nth input clock, counted from Reset and shifted later by
+the offset. The readout shows both, e.g. `/4 +2` fires on clocks 3, 7, 11 and so on.
+It follows the input clock, not the jumping playhead, so it stays on the grid
+for syncing other gear.
+
+## Jacks
 
 | Jack | What it does |
 |---|---|
-| **CLOCK** | Each pulse moves the playhead once (send 16ths for a half-bar pattern, or 8ths for a full bar) |
-| **RESET** | The next clock plays step 1 |
+| **CLOCK** | Each pulse moves the playhead once |
+| **RESET** | The next clock plays step 1 and restarts the divider count |
 | **CV** | Evolve CV, added to the knob |
 | **GATE** | Freeze gate |
-| **BD / SD / HH / RIM** | 5 ms triggers, 10 V |
+| **A to F** | 5 ms triggers, 10 V |
+| **DIV** | Divided clock, 5 ms triggers |
 
 ## Right-click menu
 
-- **Straight (step by step)**: reset the matrix of A, B or both.
+- **Straight (step by step)**: reset the matrix of X, Y or both.
 - **Randomise**: *Gentle* keeps "go to the next step" strongest in every row
-  and adds one or two jumps. *Wild* puts any weight anywhere.
-- **Copy A to B / Copy B to A**: copies matrix and hits. A good way to start B as a variation of A.
-- **Clear hits**: for A, B or both.
+  and adds one or two jumps. *Wild* puts any chance anywhere.
+- **Copy X to Y / Copy Y to X**: copies the matrix and triggers. A good way to start Y as a variation of X.
+- **Clear triggers**: for X, Y or both.
 
-Everything (both snapshots, Edit, Freeze and the frozen loop) is saved with the patch.
+Everything is saved with the patch. Patches made with version 2.0 load with their
+matrix and hits (as 0 / 100 chances) intact.
 
 ## Building
 
@@ -81,5 +90,5 @@ on the repo's **latest** release page. Locally: download the Rack SDK and run
 
 The panel is drawn by `res/make_panel.py` (needs `pip install fonttools`).
 The sequencing engine (`src/MarkovEngine.hpp`) has no Rack dependencies, and
-`test/engine_test.cpp` checks it offline: jump odds, repeats, empty rows,
-evolve blending and dice, freeze looping, and reset.
+`test/engine_test.cpp` checks it offline: row editing, jump odds, repeats, empty
+rows, trigger chances, evolve blending, freeze looping, reset and the clock divider.

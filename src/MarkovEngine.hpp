@@ -2,16 +2,19 @@
 // The sequencing core of Francois Markovian, with no VCV Rack dependencies so it
 // can be tested offline (test/engine_test.cpp).
 //
-// One playhead walks an 8-step, 4-lane drum pattern. On every clock tick it
-// picks its next step from the 8x8 jump matrix row for the step it is on, then
-// fires whichever lanes are switched on at the step it lands on.
+// One playhead walks an 8-step pattern with 6 trigger tracks (A to F). On every
+// clock tick it picks its next step from the 8x8 jump matrix row for the step
+// it is on, then each track rolls its own chance (0..100%) for the step it
+// lands on and fires if the dice say so.
 //
-// There are two snapshots, A and B, each with its own jump matrix and its own
-// hits. EVOLVE (0..1) blends the matrices smoothly, and for each hit that
-// differs between A and B it rolls dice: at evolve 0.3 that hit comes from B
-// 30% of the time.
+// Every matrix row holds chances that add up to 100% (or is empty, which means
+// "go to the next step"). Editing one cell rescales the rest of its row.
 //
-// FREEZE loops the last 8 ticks exactly as they were played (steps and hits).
+// There are two snapshots, X and Y, each with its own matrix and trigger
+// chances. EVOLVE (0..1) blends every matrix cell and every trigger chance
+// from X to Y.
+//
+// FREEZE loops the last 8 ticks exactly as they were played (steps and triggers).
 #pragma once
 #include <cstdint>
 #include <cmath>
@@ -19,7 +22,7 @@
 namespace fm {
 
 static const int NS = 8;  // steps
-static const int NL = 4;  // lanes: bass drum, snare, closed hat, rim
+static const int NL = 6;  // trigger tracks A..F
 
 // Small fast random generator (xorshift64*), so the engine needs no libraries.
 struct Rng {
@@ -32,19 +35,61 @@ struct Rng {
 	float uniform() { return (next() >> 40) * (1.f / 16777216.f); }  // [0, 1)
 };
 
+inline float clamp01(float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); }
+
+// Set cell c of a matrix row to chance v, taking the rest of the row from
+// `start` (the row as it was when the edit began) and rescaling it so the row
+// adds up to 1. Working from the starting row keeps the other cells' balance
+// intact however far the drag goes.
+inline void setRowChance(const float startIn[NS], float out[NS], int c, float v, int row) {
+	v = clamp01(v);
+	// an empty row plays as "next step at 100%", so edit it as that
+	float start[NS], sum = 0.f;
+	for (int k = 0; k < NS; k++) { start[k] = startIn[k]; sum += start[k]; }
+	if (sum <= 1e-6f) start[(row + 1) % NS] = 1.f;
+	float others = 0.f;
+	for (int k = 0; k < NS; k++) if (k != c) others += start[k];
+	if (others > 1e-6f) {
+		float scale = (1.f - v) / others;
+		for (int k = 0; k < NS; k++) out[k] = (k == c) ? v : start[k] * scale;
+	}
+	else {
+		// nothing else in the row: the remainder goes to "next step",
+		// or is spread over the other cells if c is itself the next step
+		int next = (row + 1) % NS;
+		for (int k = 0; k < NS; k++) out[k] = 0.f;
+		out[c] = v;
+		if (c != next) out[next] = 1.f - v;
+		else for (int k = 0; k < NS; k++) if (k != c) out[k] = (1.f - v) / (NS - 1);
+	}
+}
+
 struct Snapshot {
-	float w[NS][NS];     // jump weights, row = from step, column = to step, 0..1
-	bool hit[NL][NS];    // drum hits
+	float w[NS][NS];   // jump chances, row = from step, column = to step; rows add up to 1 (or are empty)
+	float p[NL][NS];   // trigger chances per track and step, 0..1
 
 	void straight() {
 		for (int r = 0; r < NS; r++)
 			for (int c = 0; c < NS; c++)
 				w[r][c] = (c == (r + 1) % NS) ? 1.f : 0.f;
 	}
-	void clearHits() {
+	void clearTriggers() {
 		for (int l = 0; l < NL; l++)
 			for (int s = 0; s < NS; s++)
-				hit[l][s] = false;
+				p[l][s] = 0.f;
+	}
+	void defaultTriggers() {
+		clearTriggers();
+		p[0][0] = 1.f;  // A on step 1
+		p[1][4] = 1.f;  // B on step 5
+	}
+	// Make every non-empty row add up to 1 (used after loading or randomising).
+	void normalise() {
+		for (int r = 0; r < NS; r++) {
+			float sum = 0.f;
+			for (int c = 0; c < NS; c++) { w[r][c] = clamp01(w[r][c]); sum += w[r][c]; }
+			if (sum > 1e-6f) for (int c = 0; c < NS; c++) w[r][c] /= sum;
+		}
 	}
 	// "wild" = false: each row keeps "go to next step" strongest and gets one
 	// or two other jumps. "wild" = true: any cell can get any weight.
@@ -64,6 +109,7 @@ struct Snapshot {
 				}
 			}
 		}
+		normalise();
 	}
 };
 
@@ -83,12 +129,12 @@ struct Trigger {
 
 struct Tick {
 	uint8_t step = 0;
-	uint8_t mask = 0;  // bit l = lane l fired
+	uint8_t mask = 0;  // bit l = track l fired
 };
 
 struct Engine {
-	Snapshot snap[2];
-	float evolve = 0.f;      // 0 = A, 1 = B
+	Snapshot snap[2];        // 0 = X, 1 = Y
+	float evolve = 0.f;      // 0 = X, 1 = Y
 	bool freeze = false;     // set by the module every block
 	float trigLen = 0.005f;  // 5 ms triggers
 
@@ -97,7 +143,7 @@ struct Engine {
 	int prevStep = -1;       // the step it came from (for the display)
 	bool started = false;    // false until the first clock after load/reset
 	bool resetPending = false;
-	uint8_t lastMask = 0;    // lanes fired on the last tick
+	uint8_t lastMask = 0;    // tracks fired on the last tick
 	Trigger trig[NL];
 	Rng rng;
 
@@ -108,38 +154,39 @@ struct Engine {
 	int loopLen = 0, loopPos = 0;
 	bool wasFrozen = false;
 
-	Engine() {
-		snap[0].straight();
-		snap[1].straight();
-		defaultHits();
-	}
+	// clock divider: fires on every div-th clock, shifted later by offset clocks.
+	// It counts input clocks from reset, whatever the playhead or freeze is doing.
+	int div = 1, offset = 0;
+	int divCount = 0;
+	Trigger divTrig;
 
-	void defaultHits() {
-		// A: four to the floor style; B: broken, busier
-		const char* a[NL] = {"x...x...", "....x...", "..x...x.", "...x...x"};
-		const char* b[NL] = {"x..x..x.", "....x..x", "x.xxx.xx", ".x...x.."};
-		for (int l = 0; l < NL; l++)
-			for (int s = 0; s < NS; s++) {
-				snap[0].hit[l][s] = a[l][s] == 'x';
-				snap[1].hit[l][s] = b[l][s] == 'x';
-			}
+	Engine() {
+		for (int k = 0; k < 2; k++) {
+			snap[k].straight();
+			snap[k].defaultTriggers();
+		}
 	}
 
 	void reset() { resetPending = true; }
 
-	// The blended jump weight for one cell at the current evolve position.
+	float e() const { return clamp01(evolve); }
+
+	// The blended jump chance for one cell at the current evolve position.
 	float weight(int from, int to) const {
-		float e = evolve < 0.f ? 0.f : (evolve > 1.f ? 1.f : evolve);
-		return snap[0].w[from][to] * (1.f - e) + snap[1].w[from][to] * e;
+		return snap[0].w[from][to] * (1.f - e()) + snap[1].w[from][to] * e();
 	}
 
-	// The chance (0..1) of jumping from -> to, after normalising the row.
-	// An empty row means "go to the next step".
+	// The chance (0..1) of jumping from -> to. An empty row means "go to the next step".
 	float chance(int from, int to) const {
 		float sum = 0.f;
 		for (int c = 0; c < NS; c++) sum += weight(from, c);
 		if (sum <= 1e-6f) return to == (from + 1) % NS ? 1.f : 0.f;
 		return weight(from, to) / sum;
+	}
+
+	// The blended trigger chance for one track and step.
+	float trigChance(int lane, int s) const {
+		return snap[0].p[lane][s] * (1.f - e()) + snap[1].p[lane][s] * e();
 	}
 
 	int chooseNext(int from) {
@@ -159,14 +206,12 @@ struct Engine {
 		return (from + 1) % NS;
 	}
 
-	// Which lanes fire on step s: shared hits always, differing hits by dice.
-	uint8_t rollHits(int s) {
-		float e = evolve < 0.f ? 0.f : (evolve > 1.f ? 1.f : evolve);
+	// Which tracks fire on step s: each rolls its own blended chance.
+	uint8_t rollTriggers(int s) {
 		uint8_t m = 0;
 		for (int l = 0; l < NL; l++) {
-			bool a = snap[0].hit[l][s], b = snap[1].hit[l][s];
-			bool on = (a == b) ? a : (rng.uniform() < e ? b : a);
-			if (on) m |= 1 << l;
+			float pr = trigChance(l, s);
+			if (pr > 0.f && rng.uniform() < pr) m |= 1 << l;
 		}
 		return m;
 	}
@@ -185,6 +230,10 @@ struct Engine {
 		wasFrozen = freeze;
 		bool playedBefore = started && !resetPending;
 
+		divCount = playedBefore ? divCount + 1 : 0;
+		int d = div < 1 ? 1 : div;
+		if (((divCount - offset) % d + d) % d == 0) divTrig.fire(trigLen);
+
 		Tick t;
 		if (freeze && loopLen > 0) {
 			if (resetPending) loopPos = 0;
@@ -200,7 +249,7 @@ struct Engine {
 			resetPending = false;
 			started = true;
 			t.step = (uint8_t) next;
-			t.mask = rollHits(next);
+			t.mask = rollTriggers(next);
 			// remember it (frozen ticks are not recorded, so the loop stays put)
 			hist[histPos] = t;
 			histPos = (histPos + 1) % NS;
@@ -217,6 +266,7 @@ struct Engine {
 		if (resetEdge) reset();
 		if (clockEdge) clock();
 		for (int l = 0; l < NL; l++) trig[l].process(dt);
+		divTrig.process(dt);
 	}
 };
 
