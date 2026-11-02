@@ -1,7 +1,7 @@
 {
   "slug": "FrancoisMarkovian",
   "name": "Francois Markovian",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "license": "GPL-3.0-or-later",
   "brand": "Haer",
   "author": "Haer",
@@ -31,6 +31,16 @@
         "Random",
         "Logic",
         "Drum"
+      ]
+    },
+    {
+      "slug": "Governor",
+      "name": "Governor",
+      "description": "Feedback controller: listens to up to 6 trigger tracks and outputs control CVs that hold their density and variety at a target",
+      "tags": [
+        "Random",
+        "Utility",
+        "Logic"
       ]
     }
   ]

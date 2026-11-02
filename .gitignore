@@ -6,3 +6,4 @@ plugin.dll
 test/engine_test
 test/*.txt
 test/influence_test
+test/governor_test

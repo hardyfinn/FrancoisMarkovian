@@ -6,4 +6,5 @@ void init(Plugin* p) {
 	pluginInstance = p;
 	p->addModel(modelFrancoisMarkovian);
 	p->addModel(modelInterlock);
+	p->addModel(modelGovernor);
 }

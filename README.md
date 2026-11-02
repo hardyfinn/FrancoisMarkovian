@@ -1,7 +1,8 @@
 # Francois Markovian
 
-A VCV Rack 2 plugin with two modules: **Francois Markovian**, a Markov jump
-trigger sequencer, and **Interlock**, an influence-grid trigger processor
+A VCV Rack 2 plugin with three modules: **Francois Markovian**, a Markov jump
+trigger sequencer; **Interlock**, an influence-grid trigger processor; and
+**Governor**, a feedback controller that holds density and variety on target
 (see below).
 
 ## Francois Markovian
@@ -144,6 +145,66 @@ before the ghosts are decided. Use the same clock for Interlock and the sequence
 
 Right-click: Clear grid, Load the guide's example, Randomise.
 
+# Governor
+
+![Governor panel](docs/governor-preview.png)
+
+An 18 HP feedback controller. It **listens** to up to 6 trigger tracks, **measures**
+how busy and how changeable they are, and outputs **control CVs** that push the
+music back towards targets you set. Patch the CVs into whatever shapes the
+pattern (Francois Markovian's EVOLVE, Interlock's AMOUNT, Seuperclidean's
+density, a VCA...) and the system steers itself.
+
+## What it measures
+
+Over the last **WINDOW** clocks (8, 16, 32 or 64, default 16):
+
+- **Density**: the share of possible hits that played, i.e. hits / (window × connected tracks).
+- **Variety**: how different this window is from the window before it, step by
+  step. 0% = an exact repeat, 100% = nothing in common. (It needs two full
+  windows of history before it starts measuring.)
+
+Only **connected** trigger inputs count (all six if none are patched).
+
+## The two loops
+
+Each of density and variety has its own row:
+
+| Control | What it does |
+|---|---|
+| **TARGET** + **CV** | The level to hold. 0 to 10 V adds 0 to 100%. Drive it from Live (CV Tools) to give each arrangement section its own energy |
+| **POL** | Down (+): raising the control raises the measurement. Up (–): raising the control lowers it |
+| **CTRL** | The control, 0 to 10 V |
+| **INV** | The control upside down, 10 to 0 V |
+| **ERR** | Target minus measured, ±5 V (positive = needs more) |
+| **BUSY / SPARSE** | Gates while density is more than 5% above / below target |
+| **VARIED / SAME** | Gates while variety is more than 5% above / below target |
+
+## Shared controls
+
+| Control | What it does |
+|---|---|
+| **CLOCK** | One pulse per step. Use the same clock as the sequencer |
+| **RESET** | Clears the measurement history |
+| **WINDOW** | 8, 16, 32 or 64 clocks |
+| **RESPONSE** | How quickly the controls correct, from about 4 clocks (fast) to 256 (slow) |
+| **WOBBLE** | Smooth (0) settles without overshoot. Towards full it pushes harder with less damping, so it **overshoots and hunts** around the target |
+
+The graphs scroll one point per clock: the coloured line is the measurement,
+the white line the target and the yellow line the control.
+
+Right-click: *Centre both controls (5 V)*.
+
+## Patch ideas
+
+- **Energy per section:** Markovian A to F outs → Governor ins. Density CTRL →
+  Markovian EVOLVE CV (make Y the busier snapshot). Automate density TARGET from Live.
+- **Self-locking loop:** variety **VARIED** gate → Markovian **FREEZE** gate.
+  When things get too chaotic it locks into a loop; once the loop is too repetitive
+  (variety falls), the gate drops and it lets go again.
+- **Interplay on demand:** variety CTRL → Interlock AMOUNT CV, so the tracks start
+  answering each other more when the groove has been static for a while.
+
 # Building
 
 GitHub Actions tests the engine and builds the Apple Silicon version on every
@@ -157,3 +218,5 @@ The sequencing engine (`src/MarkovEngine.hpp`) has no Rack dependencies, and
 rows, trigger chances, evolve blending, freeze looping, reset and the clock divider.
 Interlock's engine (`src/InfluenceEngine.hpp`) is checked by `test/influence_test.cpp`,
 and its panel is drawn by `res/make_panel_interlock.py`.
+Governor's engine (`src/GovernorEngine.hpp`) is checked by `test/governor_test.cpp`,
+including closed loops against a simulated band, and its panel by `res/make_panel_governor.py`.
