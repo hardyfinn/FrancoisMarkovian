@@ -1,0 +1,23 @@
+{
+  "slug": "FrancoisMarkovian",
+  "name": "Francois Markovian",
+  "version": "2.0.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "Haer",
+  "author": "Haer",
+  "authorEmail": "",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "",
+  "sourceUrl": "https://github.com/hardyfinn/FrancoisMarkovian",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "FrancoisMarkovian",
+      "name": "Francois Markovian",
+      "description": "8-step, 4-lane drum sequencer whose playhead jumps between steps by a hand-set Markov matrix, with A/B evolve and freeze",
+      "tags": ["Sequencer", "Drum", "Random"]
+    }
+  ]
+}
