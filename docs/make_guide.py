@@ -10,8 +10,8 @@ def img(name):
 
 FM, IL, GV, EX = img("panel-preview.png"), img("interlock-preview.png"), img("governor-preview.png"), img("influence-example.png")
 
-def table(rows):
-    out = '<table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody>'
+def table(rows, heads=("Control", "What it does")):
+    out = f'<table><thead><tr><th>{heads[0]}</th><th>{heads[1]}</th></tr></thead><tbody>'
     for a, b in rows:
         out += f"<tr><td><b>{a}</b></td><td>{b}</td></tr>"
     return out + "</tbody></table>"
@@ -112,7 +112,7 @@ footer {{ color: var(--soft); font-size: 14px; padding: 48px 0 64px; }}
 <nav class="toc">
   <a href="#overview">Overview</a><a href="#install">Install</a><a href="#start">Quick start</a>
   <a href="#fm">Francois Markovian</a><a href="#il">Interlock</a><a href="#gv">Governor</a>
-  <a href="#system">The full system</a><a href="#ideas">Patch ideas</a><a href="#arrange">Arrangement</a>
+  <a href="#system">The full system</a><a href="#recipes">Governor recipes</a><a href="#ideas">Patch ideas</a><a href="#arrange">Arrangement</a>
 </nav>
 
 <h2 id="overview">Overview</h2>
@@ -234,7 +234,7 @@ A feedback controller that <b>listens</b> to the triggers, measures how busy (de
  ("RESPONSE", "How quickly the controls correct, from about 4 clocks (fast) to 256 (slow)."),
  ("WOBBLE", "0 settles smoothly. Towards full it pushes harder with less damping, so it overshoots and <b>hunts</b> around the target."),
 ])}
-<div class="tip"><b>Getting it to steer.</b> Governor can only hold a target if its control actually changes the thing it measures. If a line drifts away from the target and the control pins at 0 or 10 V, flip <b>POL</b>, or make sure the patched control has room to move (for example, make sure Y really is busier than X).</div>
+<div class="tip"><b>Getting it to steer.</b> Governor can only hold a target if its control actually changes the thing it measures. If a line drifts away from the target and the control pins at 0 or 10 V, flip <b>POL</b>, or make sure the patched control has room to move (for example, make sure Y really is busier than X). See <a href="#recipes">Governor recipes</a> for step-by-step setups.</div>
 
 <h2 id="system">The full system</h2>
 <p>All three together: the sequencer jumps, Interlock makes the parts answer each other, and Governor listens to the result and steers both.</p>
@@ -246,6 +246,41 @@ A feedback controller that <b>listens</b> to the triggers, measures how busy (de
   <li>Governor density <b>CTRL</b> to Markovian <b>EVOLVE CV</b>, with EVOLVE knob at 0, and Y as the busier snapshot.</li>
   <li>Governor variety <b>CTRL</b> to Interlock <b>AMOUNT CV</b>, with AMOUNT knob at 0.</li>
 </ol>
+
+<h2 id="recipes">Governor recipes</h2>
+<p>Governor can only steer what its control CVs are patched into. These are starting points for the modules in your rack.</p>
+
+<h3>Governor → Francois Markovian</h3>
+<p>Governor slides the pattern between snapshot X and Y to reach the density you want.</p>
+<ol class="steps">
+  <li><b>Clock and reset:</b> send the same clock to both modules' CLOCK inputs and the same reset to both RESET inputs.</li>
+  <li><b>Let Governor listen:</b> patch Markovian's <b>A–F</b> outs to your drums <i>and</i> to Governor's <b>A–F</b> ins. In Rack you can stack a second cable on an output by Ctrl-dragging (Cmd on Mac) from it.</li>
+  <li><b>Make X sparse and Y busy:</b> right-click Markovian, <i>Copy X to Y</i>, then switch EDIT to Y and drag more trigger chances up.</li>
+  <li><b>Patch the control:</b> Governor density <b>CTRL</b> → Markovian <b>EVOLVE CV</b>. Turn Markovian's <b>EVOLVE knob to 0</b> (the CV adds to the knob). Density <b>POL</b> down (+).</li>
+  <li><b>Set a target:</b> density TARGET about 40%, RESPONSE at noon, WOBBLE at 0. The coloured line should move onto the white target line within a few bars.</li>
+</ol>
+<p><b>Bonus:</b> variety <b>VARIED</b> gate → Markovian <b>FREEZE</b> gate. It locks into a loop when things get too chaotic, and lets go once the loop gets too repetitive.</p>
+
+<h3>Governor → Seuperclidean</h3>
+<p>The 6-channel Seuperclidean has <b>DENSITY CV</b> and <b>MUTATE CV</b> inputs, so each Governor loop gets an obvious target.</p>
+<ol class="steps">
+  <li>Send the same 16th clock and reset to both modules.</li>
+  <li>Stack-patch Seuperclidean's <b>GATE</b> outs (rows 1–6) to your drums <i>and</i> to Governor's <b>A–F</b> ins.</li>
+  <li><b>Density:</b> Governor density <b>CTRL</b> → Seuperclidean <b>DENSITY CV</b>, POL down (+). <b>Turn Seuperclidean's DENSITY knob fully left.</b> Its CV input is ±5 V added to the knob, so from fully left Governor's 0–10 V sweeps the whole range, from fewest hits to most. From noon, anything above 5 V does nothing and Governor can only add hits.</li>
+  <li><b>Variety:</b> Governor variety <b>CTRL</b> → Seuperclidean <b>MUTATE CV</b> (0–10 V = full range), MUTATE knob at 0, POL down (+). Give each row some <b>MUT</b> (about 30–50%) so there is something to scale. Governor raises mutation when the groove has been static and lowers it when it's changing too much, and Seuperclidean's homing keeps it from drifting off for good.</li>
+</ol>
+<p><b>Alternative for variety:</b> variety <b>VARIED</b> gate → Seuperclidean <b>LOCK</b> gate. When things get too changeable, the current mutated patterns freeze until variety drops back.</p>
+<p><b>Seuperclidean 4</b> has no density or mutate CV inputs. Multiple the density CTRL into each voice's <b>FILL CV</b> instead (10 V adds a full length of hits), with the FILL knobs set low.</p>
+<p>Starting points: density target 35–45%, variety target 20–30%, RESPONSE at noon, WOBBLE at 0.</p>
+
+<h3>If a loop won't settle</h3>
+{table([
+ ("Stuck at 10 V, below target", "What it controls can't get busy (or varied) enough. Make Y busier, raise MUT, or lower the target."),
+ ("Stuck at 0 V, above target", "Even the minimum is too busy. Make X sparser, or turn the controlled module's knob further down."),
+ ("Moves away from target", "The polarity is the wrong way round. Flip POL."),
+ ("Empty variety graph", "Variety needs two full windows of history (32 clocks at the default) before it starts measuring."),
+ ("Control swings back and forth", "Lower WOBBLE, or set RESPONSE slower."),
+], ("What you see", "What to do"))}
 
 <h2 id="ideas">Patch ideas</h2>
 <div class="card"><h4>Drunk drummer</h4>Straight matrix, then a 20–30% "back to step 1" in rows 4 and 8, and a little diagonal on the hat's steps. Recognisable, but never quite the same bar twice.</div>
