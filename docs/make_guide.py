@@ -9,6 +9,7 @@ def img(name):
         return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
 FM, IL, GV, EX = img("panel-preview.png"), img("interlock-preview.png"), img("governor-preview.png"), img("influence-example.png")
+RW = img("rewrite-preview.png")
 
 def table(rows, heads=("Control", "What it does")):
     out = f'<table><thead><tr><th>{heads[0]}</th><th>{heads[1]}</th></tr></thead><tbody>'
@@ -111,23 +112,25 @@ footer {{ color: var(--soft); font-size: 14px; padding: 48px 0 64px; }}
 <main class="wrap">
 <nav class="toc">
   <a href="#overview">Overview</a><a href="#install">Install</a><a href="#start">Quick start</a>
-  <a href="#fm">Francois Markovian</a><a href="#il">Interlock</a><a href="#gv">Governor</a>
+  <a href="#fm">Francois Markovian</a><a href="#il">Interlock</a><a href="#gv">Governor</a><a href="#rw">Rewrite</a><a href="#poly">Poly cables</a>
   <a href="#system">The full system</a><a href="#recipes">Governor recipes</a><a href="#ideas">Patch ideas</a><a href="#arrange">Arrangement</a>
 </nav>
 
 <h2 id="overview">Overview</h2>
-<p class="lead">The plugin holds three modules that work on their own and get more interesting together.</p>
+<p class="lead">The plugin holds four modules that work on their own and get more interesting together. Since 3.0 they link with three kinds of poly cable.</p>
 <div class="card"><h4>Francois Markovian <span class="mod fm">29 HP</span></h4>
 A trigger sequencer whose playhead <b>jumps</b> between 8 steps by chances you draw in a matrix. Six tracks, A to F, each with its own chance per step. Two snapshots (X and Y) and an Evolve control morph between them, Freeze locks what just played, and a clock divider output keeps other gear on the grid.</div>
 <div class="card il"><h4>Interlock <span class="mod il">16 HP</span></h4>
 A trigger processor where tracks <b>answer each other</b>: when one fires, it raises or lowers the others' chances on the next steps. It can hold hits back or add ghost hits.</div>
 <div class="card gv"><h4>Governor <span class="mod gv">18 HP</span></h4>
 A feedback controller that <b>listens</b> to the triggers, measures how busy (density) and how changeable (variety) they are, and outputs control CVs that push the music back towards targets you set.</div>
+<div class="card"><h4>Rewrite <span class="mod fm">24 HP</span></h4>
+A pattern grower: it takes one bar of each track and <b>rewrites</b> it every few bars by that track's own rules (a hit becomes hit-rest, a rest becomes rest-hit...). Parts grow at their own speeds, with lock, hold and rewind to steer them.</div>
 
 <h2 id="install">Install</h2>
 <ol class="steps">
-  <li>Copy <code>FrancoisMarkovian-2.3.0-mac-arm64.vcvplugin</code> into your Rack 2 plugins folder (Rack: <i>Help &gt; Open user folder</i>, then <code>plugins-mac-arm64</code>). Replace any older version.</li>
-  <li>Restart Rack. The three modules appear under the brand <b>Haer</b>.</li>
+  <li>Copy <code>FrancoisMarkovian-3.0.0-mac-arm64.vcvplugin</code> into your Rack 2 plugins folder (Rack: <i>Help &gt; Open user folder</i>, then <code>plugins-mac-arm64</code>). Replace any older version.</li>
+  <li>Restart Rack. The four modules appear under the brand <b>Haer</b>.</li>
 </ol>
 
 <h2 id="start">Quick start</h2>
@@ -174,8 +177,12 @@ A feedback controller that <b>listens</b> to the triggers, measures how busy (de
  ("FREEZE + GATE", "Loop the last 8 steps played."),
  ("A to F", "5 ms triggers, 10 V."),
  ("DIV", "Divided clock, 5 ms triggers."),
+ ("MUTE CV", "Poly, channel 1 = A ... 6 = F. 10 V mutes that track, on top of the letters."),
+ ("TRIG / ACT / STATE", "Poly outputs: the six triggers, which tracks are playing, and the module's state (see <a href=\"#poly\">Poly cables</a>)."),
 ])}
-<p><b>Right-click menu:</b> Straight (reset the matrix of X, Y or both) · Randomise (<i>Gentle</i> keeps "next step" strongest and adds one or two jumps, <i>Wild</i> puts chances anywhere) · Copy X to Y / Y to X · Clear triggers.</p>
+<h3>Mutes</h3>
+<p><b>Click a track's letter</b> left of the trigger grid to mute it. The letter becomes a dark <b>M</b> and the row dims. A muted track still rolls its dice, so it comes back in step. The mute travels down the <b>ACT</b> cable, so Interlock, Rewrite and Governor all know it's off.</p>
+<p><b>Right-click menu:</b> Straight (reset the matrix of X, Y or both) · Randomise (nudge): <i>Gentle</i> moves 1 to 3 matrix cells, <i>Wild</i> 1 to 5, each by 10 to 50 points, and the touched rows rescale like a drag. Press it again to nudge further · Copy X to Y / Y to X · Clear triggers.</p>
 
 <h2 id="il">Interlock</h2>
 <div class="layout narrow">
@@ -199,6 +206,8 @@ A feedback controller that <b>listens</b> to the triggers, measures how busy (de
  ("AMOUNT + CV", "Scales the whole grid. 0 = straight through, 100% = as drawn."),
  ("MEMORY", "0 = an influence lasts only the next step. 1 to 4 = that many extra steps, fading out (memory 2: 100%, 67%, 33%)."),
  ("IN / OUT A to F", "Triggers in, 5 ms triggers out."),
+ ("TRIG IN / ACT IN", "Poly: the six triggers in one cable (a mono IN replaces its channel), and which tracks are playing. A muted track passes nothing, gets no ghost hits and pushes nothing."),
+ ("TRIG / ACT / STATE out", "Poly: the six triggers, ACT passed on, and the NOW meters (±5 V)."),
 ])}
 <div class="tip"><b>Timing.</b> Incoming triggers are passed on (or held back) the moment they arrive, so there's no delay. Ghost hits come 2 ms after the clock, which gives triggers from another module time to arrive first.</div>
 
@@ -213,7 +222,7 @@ A feedback controller that <b>listens</b> to the triggers, measures how busy (de
       <li><b>Density</b> is the share of possible hits that played.</li>
       <li><b>Variety</b> is how different this window is from the one before it: 0% is an exact repeat and 100% is nothing in common. It starts measuring after two full windows.</li>
     </ul>
-    <p>Only <b>connected</b> trigger inputs count.</p>
+    <p>Only <b>connected</b> trigger inputs count. With the poly <b>TRIG</b> input patched, its channels are the tracks, and tracks muted on <b>ACT</b> drop out, so a breakdown doesn't make Governor fill the gap.</p>
     <h3>Reading the graphs</h3>
     <p>One point per clock. The coloured line is the measurement, the white line the target, and the yellow line the control it's sending.</p>
   </div>
@@ -235,6 +244,47 @@ A feedback controller that <b>listens</b> to the triggers, measures how busy (de
  ("WOBBLE", "0 settles smoothly. Towards full it pushes harder with less damping, so it overshoots and <b>hunts</b> around the target."),
 ])}
 <div class="tip"><b>Getting it to steer.</b> Governor can only hold a target if its control actually changes the thing it measures. If a line drifts away from the target and the control pins at 0 or 10 V, flip <b>POL</b>, or make sure the patched control has room to move (for example, make sure Y really is busier than X). See <a href="#recipes">Governor recipes</a> for step-by-step setups.</div>
+
+<h2 id="rw">Rewrite</h2>
+<div class="layout narrow">
+  <div><img class="panel" src="{RW}" alt="Rewrite panel"></div>
+  <div>
+    <p class="lead">Rewrite holds a one-bar phrase for each track and <b>grows</b> it a generation at a time. At a rewrite, every hit becomes the <b>HIT BECOMES</b> pattern and every rest the <b>REST BECOMES</b> pattern, and the result is folded back into one bar.</p>
+    <ol class="steps">
+      <li><b>Seed.</b> Until you press SEED, triggers pass straight through. SEED takes the last bar (16 steps, or 8 from the right-click menu) as the start.</li>
+      <li><b>Grow.</b> Each track rewrites every 1, 2, 4 or 8 bars (<b>EVERY</b>). <b>AMOUNT</b> is the chance each step is swapped, so growth is uneven.</li>
+      <li><b>Fit.</b> The grown phrase is longer than a bar. <b>WIN</b> keeps a one-bar slice (where, set by WINDOW + CV), <b>SQZ</b> samples the whole thing into one bar.</li>
+      <li><b>Remember.</b> The last 16 generations are kept for REWIND, and the display shows the last 4.</li>
+    </ol>
+    <p>The default rules (hit becomes hit-rest, rest becomes rest-hit) are the Thue-Morse pattern, which never settles into a plain repeat.</p>
+  </div>
+</div>
+{table([
+ ("HIT / REST BECOMES", "Click to step through 8 pictures, shift-click goes back. Hit: ● · ●· · ●● · ●·● · ●●● (roll) · ·● (late) · ●·· · · (drops out). Rest: · · ·· · ·● · ●· · ··· · ·●· · ··● · ● (fills in)."),
+ ("EVERY / AMOUNT", "How many bars between rewrites, and the chance each step is rewritten (default 50%)."),
+ ("LOCK", "Stop this track growing and keep what it has. REWIND leaves it alone too."),
+ ("SEED + trigger", "The last bar coming in becomes the new start. The light shows it's seeded."),
+ ("REWRITE NOW + gate", "Grow every unlocked track on the next bar line. While the gate is high, every bar line grows."),
+ ("HOLD + gate", "No growth while on."),
+ ("REWIND + trigger", "Back one generation. Hold the button for a second to go back to the seed."),
+ ("TRIG / ACT in", "Poly triggers and mutes. Muted tracks are silent and freeze, then carry on from there."),
+ ("TRIG / ACT / GEN / STATE out", "Poly triggers, ACT passed on, a trigger whenever a track grew, and STATE: 1 to 6 how far each track is from its seed (0 to 10 V), 7 generations (0.1 V each)."),
+])}
+<div class="tip"><b>Grows only when stale.</b> Governor <b>SAME</b> → Rewrite <b>REWRITE NOW</b>, and Governor <b>VARIED</b> → Rewrite <b>HOLD</b>. With a 32-step window and a variety target around 30%, the groove sits until it gets boring, then sprouts something new.</div>
+
+<h2 id="poly">Poly cables</h2>
+<p>Every module speaks the same three poly cables, colour-coded on the panels.</p>
+{table([
+ ("TRIG (orange)", "Triggers A to F on 6 channels and nothing else, so it's safe for any poly drum module. A mono jack replaces its channel. With TRIG patched, missing channels are tracks that don't exist."),
+ ("ACT (green)", "10 V = playing, 0 V = muted, on 6 channels. It starts at Markovian's mute letters and is passed along the chain. Unpatched means everything plays."),
+ ("STATE (blue)", "Each module's inner values as CVs: Markovian 1 step, 2 Evolve, 3 freeze, 4 jump size, 5 tracks fired, 6 phrase start; Interlock the NOW meters; Governor 1 density, 2 variety, 3–4 errors, 5–6 controls; Rewrite 1–6 distance from seed, 7 generations. Split them with VCV Split."),
+], ("Cable", "What it carries"))}
+<ol class="steps">
+  <li>One clock and one reset into every module.</li>
+  <li>Markovian <b>TRIG</b> → Interlock <b>TRIG IN</b> → Rewrite <b>TRIG</b> → Governor <b>TRIG</b>. Run <b>ACT</b> along the same path.</li>
+  <li>Rewrite's mono outs to your drum voices.</li>
+  <li>Try Markovian STATE channel 4 (jump size) through Split into a filter or Just Friends' TIME, so big jumps sound different.</li>
+</ol>
 
 <h2 id="system">The full system</h2>
 <p>All three together: the sequencer jumps, Interlock makes the parts answer each other, and Governor listens to the result and steers both.</p>
