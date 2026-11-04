@@ -10,7 +10,7 @@ using fm::NL;
 
 namespace fmp {
 // left: the jump matrix (narrow cells, 65% as wide as they are tall)
-static const float MX0 = 11.f, MY0 = 18.f, MCW = 8.f, MCH = 12.4f;
+static const float MX0 = 11.f, MY0 = 18.f, MCW = 8.f, MCH = 9.9f;
 // right: the trigger grid
 static const float TX0 = 85.5f, TY0 = 18.f, TCW = 7.f, TCH = 7.6f;
 static const float EDIT_X = 125.5f, EDIT_Y = 70.f, EDIT_W = 16.f, EDIT_H = 3.6f;
@@ -18,6 +18,11 @@ static const float Y_ROW1 = 85.f, Y_ROW2 = 98.f, Y_OUT = 114.5f;
 static const float X_COL[6] = {86.5f, 97.5f, 108.5f, 119.5f, 130.5f, 141.5f};
 static const float DIVTXT_X = 104.f, DIVTXT_W = 18.f, DIVTXT_H = 4.4f;
 static const float OUT_X0 = 85.5f, OUT_DX = 54.5f / 6.f;  // 7 outputs: A..F and the divider
+// bottom left: mute CV in, then the poly outputs
+static const float X_MUTE_CV = 14.f, X_POLY[3] = {34.f, 50.f, 66.f};  // TRIG, ACT, STATE
+// mute tabs: the coloured track letters left of the trigger grid
+static const float MUTE_X = TX0 - 5.4f, MUTE_W = 5.f;
+static const int STATE_CH = 6;
 static const NVGcolor SNAP_COL[2] = {nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0x4C, 0xD6, 0xE0)};
 static const NVGcolor LANE_COL[NL] = {
 	nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0xE8, 0xC5, 0x47), nvgRGB(0x4C, 0xD6, 0xE0),
@@ -37,6 +42,7 @@ struct FrancoisMarkovian : Module {
 		FREEZE_BUTTON,
 		DIV_PARAM,
 		OFFSET_PARAM,
+		ENUMS(MUTE_PARAM, NL),
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -44,11 +50,15 @@ struct FrancoisMarkovian : Module {
 		RESET_INPUT,
 		EVOLVE_INPUT,
 		FREEZE_INPUT,
+		MUTE_INPUT,
 		INPUTS_LEN
 	};
 	enum OutputId {
 		ENUMS(LANE_OUTPUT, NL),
 		DIV_OUTPUT,
+		TRIG_POLY_OUTPUT,
+		ACT_OUTPUT,
+		STATE_OUTPUT,
 		OUTPUTS_LEN
 	};
 	enum LightId {
@@ -65,6 +75,7 @@ struct FrancoisMarkovian : Module {
 	int editSnap = 0;          // which snapshot the grids show and edit: 0 = X, 1 = Y
 	float flash[NL] = {};      // display flash per track after it fires
 	float evolveNow = 0.f;     // knob + CV, for the display
+	uint8_t mutedNow = 0;      // buttons + MUTE CV, for the display
 
 	FrancoisMarkovian() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -78,6 +89,13 @@ struct FrancoisMarkovian : Module {
 		configInput(FREEZE_INPUT, "Freeze gate (freezes while high)");
 		for (int l = 0; l < NL; l++) configOutput(LANE_OUTPUT + l, string::f("Track %c trigger", 'A' + l));
 		configOutput(DIV_OUTPUT, "Divided clock");
+		for (int l = 0; l < NL; l++)
+			configSwitch(MUTE_PARAM + l, 0.f, 1.f, 0.f, string::f("Mute track %c", 'A' + l), {"Playing", "Muted"});
+		configInput(MUTE_INPUT, "Mute CV (poly: channel 1 = A ... 6 = F, 10 V = muted)");
+		configOutput(TRIG_POLY_OUTPUT, "Triggers A to F (poly, 6 channels)");
+		configOutput(ACT_OUTPUT, "Active tracks (poly, 6 channels: 10 V = playing, 0 V = muted)");
+		configOutput(STATE_OUTPUT, "State (poly): 1 step (1 V a step), 2 evolve, 3 freeze gate, "
+			"4 jump size (+-5 V), 5 tracks fired, 6 phrase start trigger");
 		lightDivider.setDivision(64);
 		engine.rng.seed(random::u64());
 		uiRng.seed(random::u64());
@@ -106,6 +124,13 @@ struct FrancoisMarkovian : Module {
 		engine.evolve = evolveNow;
 		engine.div = divValue();
 		engine.offset = offsetValue();
+		uint8_t mute = 0;
+		for (int l = 0; l < NL; l++) {
+			bool m = params[MUTE_PARAM + l].getValue() > 0.5f;
+			if (inputs[MUTE_INPUT].getChannels() > l && inputs[MUTE_INPUT].getVoltage(l) >= 1.f) m = true;
+			if (m) mute |= 1 << l;
+		}
+		engine.muted = mutedNow = mute;
 
 		bool clockEdge = clockTrigger.process(inputs[CLOCK_INPUT].getVoltage(), 0.1f, 1.f);
 		bool resetEdge = resetTrigger.process(inputs[RESET_INPUT].getVoltage(), 0.1f, 1.f);
@@ -113,10 +138,27 @@ struct FrancoisMarkovian : Module {
 
 		for (int l = 0; l < NL; l++) {
 			outputs[LANE_OUTPUT + l].setVoltage(engine.trig[l].high ? 10.f : 0.f);
-			if (clockEdge && (engine.lastMask & (1 << l))) flash[l] = 0.12f;
+			if (clockEdge && (engine.lastOut & (1 << l))) flash[l] = 0.12f;
 			else if (flash[l] > 0.f) flash[l] -= args.sampleTime;
 		}
 		outputs[DIV_OUTPUT].setVoltage(engine.divTrig.high ? 10.f : 0.f);
+
+		// poly outputs
+		outputs[TRIG_POLY_OUTPUT].setChannels(NL);
+		outputs[ACT_OUTPUT].setChannels(NL);
+		for (int l = 0; l < NL; l++) {
+			outputs[TRIG_POLY_OUTPUT].setVoltage(engine.trig[l].high ? 10.f : 0.f, l);
+			outputs[ACT_OUTPUT].setVoltage((mute & (1 << l)) ? 0.f : 10.f, l);
+		}
+		outputs[STATE_OUTPUT].setChannels(STATE_CH);
+		int fired = 0;
+		for (int l = 0; l < NL; l++) if (engine.lastOut & (1 << l)) fired++;
+		outputs[STATE_OUTPUT].setVoltage(engine.started ? (float) engine.step : 0.f, 0);
+		outputs[STATE_OUTPUT].setVoltage(10.f * evolveNow, 1);
+		outputs[STATE_OUTPUT].setVoltage(engine.freeze ? 10.f : 0.f, 2);
+		outputs[STATE_OUTPUT].setVoltage(1.25f * engine.lastJump, 3);
+		outputs[STATE_OUTPUT].setVoltage(10.f * fired / NL, 4);
+		outputs[STATE_OUTPUT].setVoltage(engine.phraseTrig.high ? 10.f : 0.f, 5);
 
 		if (lightDivider.process())
 			lights[FREEZE_LIGHT].setBrightness(engine.freeze ? 1.f : 0.f);
@@ -385,6 +427,12 @@ struct TriggerGrid : DragGrid {
 			for (int k = 0; k < NS; k++) {
 				float x = k * cw + pad, y = l * ch + pad, w = cw - 2 * pad, h = ch - 2 * pad;
 				drawCell(args, x, y, w, h, s.p[l][k], o.p[l][k], LANE_COL[l], k == cur, mm2px(2.1f));
+				if (module && (module->mutedNow & (1 << l))) {
+					nvgBeginPath(args.vg);
+					nvgRect(args.vg, x, y, w, h);
+					nvgFillColor(args.vg, nvgRGBA(0x10, 0x10, 0x14, 0xB0));
+					nvgFill(args.vg);
+				}
 				if (module && k == cur && module->flash[l] > 0.f) {
 					nvgBeginPath(args.vg);
 					nvgRect(args.vg, x, y, w, h);
@@ -392,6 +440,38 @@ struct TriggerGrid : DragGrid {
 					nvgFill(args.vg);
 				}
 			}
+	}
+};
+
+// ---- mute tab: click a track's letter to mute it ----
+struct MuteTab : ParamWidget {
+	int lane = 0;
+	FrancoisMarkovian* fmod = nullptr;
+
+	void onButton(const ButtonEvent& e) override {
+		if (e.button == GLFW_MOUSE_BUTTON_LEFT && e.action == GLFW_PRESS) {
+			if (ParamQuantity* pq = getParamQuantity()) pq->setValue(pq->getValue() > 0.5f ? 0.f : 1.f);
+			e.consume(this);
+			return;
+		}
+		ParamWidget::onButton(e);
+	}
+
+	void drawLayer(const DrawArgs& args, int layer) override {
+		if (layer == 1 && fmod && (fmod->mutedNow & (1 << lane))) {
+			// muted: a dark tab over the letter, with an M
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0, mm2px(0.5f), box.size.x, box.size.y - mm2px(1.f), mm2px(0.8f));
+			nvgFillColor(args.vg, FRAME);
+			nvgFill(args.vg);
+			std::shared_ptr<window::Font> font = displayFont();
+			if (font && font->handle >= 0) nvgFontFaceId(args.vg, font->handle);
+			nvgFontSize(args.vg, mm2px(2.6f));
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+			nvgFillColor(args.vg, nvgTransRGBAf(LANE_COL[lane], 0.9f));
+			nvgText(args.vg, box.size.x / 2, box.size.y / 2, "M", NULL);
+		}
+		ParamWidget::drawLayer(args, layer);
 	}
 };
 
@@ -514,6 +594,18 @@ struct FrancoisMarkovianWidget : ModuleWidget {
 
 		for (int l = 0; l < NL; l++)
 			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(OUT_X0 + l * OUT_DX, Y_OUT)), module, F::LANE_OUTPUT + l));
+
+		for (int l = 0; l < NL; l++) {
+			MuteTab* mt = createParam<MuteTab>(mm2px(Vec(MUTE_X, TY0 + l * TCH)), module, F::MUTE_PARAM + l);
+			mt->box.size = mm2px(Vec(MUTE_W, TCH));
+			mt->lane = l;
+			mt->fmod = module;
+			addParam(mt);
+		}
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(X_MUTE_CV, Y_OUT)), module, F::MUTE_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(X_POLY[0], Y_OUT)), module, F::TRIG_POLY_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(X_POLY[1], Y_OUT)), module, F::ACT_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(X_POLY[2], Y_OUT)), module, F::STATE_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(OUT_X0 + NL * OUT_DX, Y_OUT)), module, F::DIV_OUTPUT));
 	}
 
@@ -529,11 +621,13 @@ struct FrancoisMarkovianWidget : ModuleWidget {
 					if (k != 0) module->engine.snap[1].straight();
 				}));
 		}));
-		menu->addChild(createSubmenuItem("Randomise", "", [=](Menu* sub) {
+		menu->addChild(createSubmenuItem("Randomise (nudge)", "", [=](Menu* sub) {
+			sub->addChild(createMenuLabel("Gentle: up to 3 cells, Wild: up to 5"));
+			sub->addChild(createMenuLabel("each moves up to 50 points"));
 			for (int wild = 0; wild < 2; wild++)
 				for (int k = 0; k < 2; k++)
 					sub->addChild(createMenuItem(string::f("%s %s", wild ? "Wild" : "Gentle", names[k]), "", [=]() {
-						module->engine.snap[k].randomise(module->uiRng, wild);
+						module->engine.snap[k].nudge(module->uiRng, wild ? 5 : 3);
 					}));
 		}));
 		menu->addChild(createMenuLabel("Snapshots"));

@@ -1,7 +1,7 @@
 {
   "slug": "FrancoisMarkovian",
   "name": "Francois Markovian",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "license": "GPL-3.0-or-later",
   "brand": "Haer",
   "author": "Haer",
@@ -41,6 +41,16 @@
         "Random",
         "Utility",
         "Logic"
+      ]
+    },
+    {
+      "slug": "Rewrite",
+      "name": "Rewrite",
+      "description": "Per-track pattern grower: seeds a bar of triggers, then rewrites each hit and rest by its own rules every few bars, with lock, hold, rewind and poly linking",
+      "tags": [
+        "Sequencer",
+        "Random",
+        "Drum"
       ]
     }
   ]

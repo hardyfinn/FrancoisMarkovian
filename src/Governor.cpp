@@ -16,7 +16,9 @@ static const float OUT_X[5] = {44.f, 54.f, 64.f, 74.f, 84.f};  // CTRL, INV, ERR
 static const float Y_GLOBAL = 85.f, Y_IN = 108.f;
 static const float X_CLOCK = 9.f, X_RESET = 19.5f, X_WIN = 31.f, X_RESP = 43.f, X_WOB = 55.f;
 static const float WINTXT_X = 63.f, WINTXT_W = 22.f, WINTXT_H = 4.4f;
-static const float IN_X0 = 9.f, IN_DX = 11.f;
+static const float IN_X0 = 8.f, IN_DX = 10.f;
+static const float X_POLY_TRIG = 70.f, X_POLY_ACT = 81.f;   // poly inputs, end of the trigger row
+static const float X_STATE = 74.f, Y_STATE = 119.f;        // poly state output, bottom
 static const int WINDOWS[4] = {8, 16, 32, 64};
 static const int GHIST = 128;
 static const NVGcolor LOOP_COL[2] = {nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0x4C, 0xD6, 0xE0)};
@@ -40,6 +42,8 @@ struct Governor : Module {
 		RESET_INPUT,
 		ENUMS(TARGET_INPUT, 2),
 		ENUMS(TRIG_INPUT, NT),
+		TRIG_POLY_INPUT,
+		ACT_INPUT,
 		INPUTS_LEN
 	};
 	enum OutputId {
@@ -48,6 +52,7 @@ struct Governor : Module {
 		ENUMS(ERR_OUTPUT, 2),
 		ENUMS(OVER_OUTPUT, 2),
 		ENUMS(UNDER_OUTPUT, 2),
+		STATE_OUTPUT,
 		OUTPUTS_LEN
 	};
 	enum LightId {
@@ -56,6 +61,7 @@ struct Governor : Module {
 
 	gov::Engine engine;
 	dsp::SchmittTrigger clockTrigger, resetTrigger, inTrigger[NT];
+	int polyCh = 0;   // channels on the poly trigger input (0 = unpatched)
 	dsp::SlewLimiter slew[2];   // smooths the control steps between clocks
 	dsp::ClockDivider settingsDivider;
 
@@ -87,6 +93,11 @@ struct Governor : Module {
 		configInput(CLOCK_INPUT, "Clock (one pulse per step)");
 		configInput(RESET_INPUT, "Reset (clears the measurement history)");
 		for (int t = 0; t < NT; t++) configInput(TRIG_INPUT + t, string::f("Track %c trigger", 'A' + t));
+		configInput(TRIG_POLY_INPUT, "Triggers A to F (poly). Its channel count sets how many tracks there are; "
+			"a mono input replaces its channel");
+		configInput(ACT_INPUT, "Active tracks (poly: 10 V = playing, 0 V = muted). Muted tracks don't count");
+		configOutput(STATE_OUTPUT, "State (poly): 1 density, 2 variety (0 to 10 V), 3 density error, "
+			"4 variety error (+-5 V), 5 density control, 6 variety control (0 to 10 V)");
 		settingsDivider.setDivision(32);
 		for (int k = 0; k < 2; k++) slew[k].setRiseFall(20.f, 20.f);  // full range in 50 ms
 	}
@@ -109,10 +120,21 @@ struct Governor : Module {
 			loops[k]->target = clamp(params[TARGET_PARAM + k].getValue() + inputs[TARGET_INPUT + k].getVoltage() / 10.f, 0.f, 1.f);
 			loops[k]->invert = params[POL_PARAM + k].getValue() > 0.5f;
 		}
-		// only connected trigger inputs count (all 6 if none are patched yet)
+		// only connected trigger inputs count (all 6 if none are patched yet).
+		// With the poly input patched, its channels are the tracks.
+		bool poly = inputs[TRIG_POLY_INPUT].isConnected();
+		polyCh = poly ? inputs[TRIG_POLY_INPUT].getChannels() : 0;
 		uint8_t m = 0;
-		for (int t = 0; t < NT; t++) if (inputs[TRIG_INPUT + t].isConnected()) m |= 1 << t;
-		engine.trackMask = m ? m : 0x3F;
+		for (int t = 0; t < NT; t++)
+			if (inputs[TRIG_INPUT + t].isConnected() || t < polyCh) m |= 1 << t;
+		if (!m) m = 0x3F;
+		// muted tracks drop out of the sums; missing ACT channels count as playing
+		int actCh = inputs[ACT_INPUT].getChannels();
+		uint8_t on = 0x3F;
+		for (int t = 0; t < actCh && t < NT; t++)
+			if (inputs[ACT_INPUT].getVoltage(t) < 1.f) on &= ~(1 << t);
+		engine.allMuted = (m & on) == 0;
+		engine.trackMask = engine.allMuted ? m : (uint8_t) (m & on);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -129,8 +151,12 @@ struct Governor : Module {
 			}
 			hPos = (hPos + 1) % GHIST;
 		}
-		for (int t = 0; t < NT; t++)
-			if (inTrigger[t].process(inputs[TRIG_INPUT + t].getVoltage(), 0.1f, 1.f)) engine.trigger(t);
+		for (int t = 0; t < NT; t++) {
+			// a mono jack replaces its poly channel
+			float v = inputs[TRIG_INPUT + t].isConnected() ? inputs[TRIG_INPUT + t].getVoltage()
+				: (t < polyCh ? inputs[TRIG_POLY_INPUT].getVoltage(t) : 0.f);
+			if (inTrigger[t].process(v, 0.1f, 1.f)) engine.trigger(t);
+		}
 
 		gov::Loop* loops[2] = {&engine.dens, &engine.vari};
 		for (int k = 0; k < 2; k++) {
@@ -140,6 +166,12 @@ struct Governor : Module {
 			outputs[ERR_OUTPUT + k].setVoltage(clamp(5.f * loops[k]->error, -5.f, 5.f));
 			outputs[OVER_OUTPUT + k].setVoltage(loops[k]->over > 0 ? 10.f : 0.f);
 			outputs[UNDER_OUTPUT + k].setVoltage(loops[k]->over < 0 ? 10.f : 0.f);
+		}
+		outputs[STATE_OUTPUT].setChannels(6);
+		for (int k = 0; k < 2; k++) {
+			outputs[STATE_OUTPUT].setVoltage(10.f * clamp(loops[k]->measured, 0.f, 1.f), k);
+			outputs[STATE_OUTPUT].setVoltage(clamp(5.f * loops[k]->error, -5.f, 5.f), 2 + k);
+			outputs[STATE_OUTPUT].setVoltage(outputs[CTRL_OUTPUT + k].getVoltage(), 4 + k);
 		}
 	}
 
@@ -288,6 +320,9 @@ struct GovernorWidget : ModuleWidget {
 
 		for (int t = 0; t < NT; t++)
 			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(IN_X0 + t * IN_DX, Y_IN)), module, G::TRIG_INPUT + t));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(X_POLY_TRIG, Y_IN)), module, G::TRIG_POLY_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(X_POLY_ACT, Y_IN)), module, G::ACT_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(X_STATE, Y_STATE)), module, G::STATE_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
