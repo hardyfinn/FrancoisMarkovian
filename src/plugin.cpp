@@ -7,4 +7,5 @@ void init(Plugin* p) {
 	p->addModel(modelFrancoisMarkovian);
 	p->addModel(modelInterlock);
 	p->addModel(modelGovernor);
+	p->addModel(modelRewrite);
 }

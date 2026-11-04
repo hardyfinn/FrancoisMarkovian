@@ -111,6 +111,58 @@ struct Snapshot {
 		}
 		normalise();
 	}
+	// A small, controlled change: pick 1 to maxCells jump-matrix cells at random
+	// and move each up or down by up to `maxChange` (0.5 = 50 points). Each
+	// touched row then rescales to 100% the way a drag does.
+	void nudge(Rng& rng, int maxCells, float maxChange = 0.5f) {
+		if (maxCells < 1) maxCells = 1;
+		if (maxCells > NS * NS) maxCells = NS * NS;
+		int n = 1 + (int) (rng.uniform() * maxCells);
+		if (n > maxCells) n = maxCells;
+		int used[NS * NS];
+		int nUsed = 0;
+		for (int k = 0; k < n; k++) {
+			int cell = 0;
+			for (int tries = 0; tries < 64; tries++) {
+				cell = (int) (rng.uniform() * NS * NS) % (NS * NS);
+				bool dup = false;
+				for (int i = 0; i < nUsed; i++) if (used[i] == cell) dup = true;
+				if (!dup) break;
+			}
+			used[nUsed++] = cell;
+			int r = cell / NS, c = cell % NS;
+			float sum = 0.f;
+			for (int i = 0; i < NS; i++) sum += w[r][i];
+			// an empty row plays as "next step 100%", so nudge it as that
+			float cur = sum <= 1e-6f ? (c == (r + 1) % NS ? 1.f : 0.f) : w[r][c];
+			// a change of 10 to 50 points (with maxChange 0.5), up or down
+			float mag = maxChange * (0.2f + 0.8f * rng.uniform());
+			float d = rng.uniform() < 0.5f ? -mag : mag;
+			// if the change would hit the end of the range, go the other way
+			if (cur + d < 0.f || cur + d > 1.f) d = -d;
+			if (cur + d < 0.f) d = -cur;
+			if (cur + d > 1.f) d = 1.f - cur;
+			int nonZero = 0;
+			for (int i = 0; i < NS; i++) if (w[r][i] > 1e-6f) nonZero++;
+			if (sum <= 1e-6f || (nonZero == 1 && cur > 1e-6f && d < 0.f)) {
+				// lowering the only cell of a row: the freed chance goes to one
+				// other step picked at random, so the change stays small
+				int c2 = (c + 1 + (int) (rng.uniform() * (NS - 1))) % NS;
+				for (int i = 0; i < NS; i++) w[r][i] = 0.f;
+				if (d < 0.f) { w[r][c] = cur + d; w[r][c2] = -d; }
+				else {
+					// an empty row raised on a cell other than the next step
+					int next = (r + 1) % NS;
+					w[r][c] = d;
+					w[r][next] += 1.f - d;
+				}
+				continue;
+			}
+			float out[NS];
+			setRowChance(w[r], out, c, cur + d, r);
+			for (int i = 0; i < NS; i++) w[r][i] = out[i];
+		}
+	}
 };
 
 // A short trigger: high for a fixed time after it fires.
@@ -143,7 +195,11 @@ struct Engine {
 	int prevStep = -1;       // the step it came from (for the display)
 	bool started = false;    // false until the first clock after load/reset
 	bool resetPending = false;
-	uint8_t lastMask = 0;    // tracks fired on the last tick
+	uint8_t lastMask = 0;    // tracks the dice chose on the last tick (muted or not)
+	uint8_t lastOut = 0;     // tracks that actually fired on the last tick (not muted)
+	uint8_t muted = 0;       // bit l = track l muted (set by the module every block)
+	int lastJump = 0;        // how far the last tick jumped: 0 = to the next step, -3..+4
+	Trigger phraseTrig;      // fires every NS clocks counted from reset
 	Trigger trig[NL];
 	Rng rng;
 
@@ -233,6 +289,7 @@ struct Engine {
 		divCount = playedBefore ? divCount + 1 : 0;
 		int d = div < 1 ? 1 : div;
 		if (((divCount - offset) % d + d) % d == 0) divTrig.fire(trigLen);
+		if (divCount % NS == 0) phraseTrig.fire(trigLen);
 
 		Tick t;
 		if (freeze && loopLen > 0) {
@@ -257,9 +314,17 @@ struct Engine {
 		}
 		prevStep = playedBefore ? step : -1;
 		step = t.step;
+		if (prevStep >= 0) {
+			int j = ((step - prevStep - 1) % NS + NS) % NS;  // 0 = went to the next step
+			lastJump = j > NS / 2 ? j - NS : j;
+		}
+		else lastJump = 0;
 		lastMask = t.mask;
+		// muting only silences the output: the dice and the freeze history carry on,
+		// so an unmuted track comes back in the same place
+		lastOut = t.mask & ~muted;
 		for (int l = 0; l < NL; l++)
-			if (t.mask & (1 << l)) trig[l].fire(trigLen);
+			if (lastOut & (1 << l)) trig[l].fire(trigLen);
 	}
 
 	void process(float dt, bool clockEdge, bool resetEdge) {
@@ -267,6 +332,7 @@ struct Engine {
 		if (clockEdge) clock();
 		for (int l = 0; l < NL; l++) trig[l].process(dt);
 		divTrig.process(dt);
+		phraseTrig.process(dt);
 	}
 };
 

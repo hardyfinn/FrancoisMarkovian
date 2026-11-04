@@ -22,6 +22,8 @@ ACCENT = "#C8502D"
 OUTBOX = "#2A2A31"
 OUTINK = "#ECE6DA"
 
+PCOL = {"TRIG": "#E0692E", "TRIG IN": "#E0692E", "ACT": "#4FA83F", "ACT IN": "#4FA83F", "STATE": "#2BAFB9"}
+
 fonts = {}
 
 
@@ -55,7 +57,9 @@ GRAPH_Y = [15.0, 46.0]
 ROW_Y = [40.0, 71.0]
 OUT_X = [44.0, 54.0, 64.0, 74.0, 84.0]
 Y_GLOBAL, Y_IN = 85.0, 108.0
-IN_X0, IN_DX = 9.0, 11.0
+IN_X0, IN_DX = 8.0, 10.0
+X_POLY_TRIG, X_POLY_ACT = 70.0, 81.0
+X_STATE, Y_STATE = 74.0, 119.0
 LANE_COL = ["#E0692E", "#C9A21E", "#2BAFB9", "#9670D8", "#4FA83F", "#D84F8C"]
 
 parts = []
@@ -91,8 +95,14 @@ add(text("LISTEN TO TRIGGERS", 4.0, 99.4, 1.4, FONT_BOLD, SOFT, anchor="start"))
 for i, s in enumerate("ABCDEF"):
     lab(s, IN_X0 + i * IN_DX, Y_IN - 4.5, 1.6)
     add(f'<rect x="{IN_X0 + i * IN_DX - 2.5:.2f}" y="{Y_IN + 4.2:.2f}" width="5" height="0.6" rx="0.3" fill="{LANE_COL[i]}"/>')
-add(text("unpatched inputs", 80.0, Y_IN - 0.4, 1.25, FONT_MED, SOFT))
-add(text("don't count", 80.0, Y_IN + 1.6, 1.25, FONT_MED, SOFT))
+add(f'<rect x="{X_POLY_TRIG - 4.6:.2f}" y="{Y_IN - 8.0:.2f}" width="0.25" height="12.6" fill="#CFC7B8"/>')
+add(text("POLY", (X_POLY_TRIG + X_POLY_ACT) / 2, 99.4, 1.3, FONT_BOLD, SOFT))
+lab("TRIG", X_POLY_TRIG, Y_IN - 4.5, color=PCOL["TRIG"])
+lab("ACT", X_POLY_ACT, Y_IN - 4.5, color=PCOL["ACT"])
+add(text("unpatched inputs don't count \u00b7 muted tracks (ACT) don't count", 4.0, Y_IN + 7.4, 1.2, FONT_MED, SOFT, anchor="start"))
+add(f'<rect x="{X_STATE - 19.0:.2f}" y="{Y_STATE - 5.2:.2f}" width="26" height="10.4" rx="1.2" fill="{OUTBOX}"/>')
+add(text("STATE", X_STATE - 6.6, Y_STATE + 0.6, 1.45, FONT_BOLD, PCOL["STATE"], anchor="end"))
+add(text("poly \u00b7 6 ch", X_STATE - 6.6, Y_STATE + 2.8, 1.1, FONT_MED, "#9A9488", anchor="end"))
 
 svg = (
     f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H}mm" '

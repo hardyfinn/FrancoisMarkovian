@@ -22,6 +22,8 @@ ACCENT = "#C8502D"
 OUTBOX = "#2A2A31"
 OUTINK = "#ECE6DA"
 
+PCOL = {"TRIG": "#E0692E", "TRIG IN": "#E0692E", "ACT": "#4FA83F", "ACT IN": "#4FA83F", "STATE": "#2BAFB9"}
+
 fonts = {}
 
 
@@ -51,10 +53,12 @@ def text(s, x, y, size, font=FONT_MED, fill=INK, anchor="middle", spacing=0.04):
 
 
 # layout, same numbers as src/Interlock.cpp
-GX0, GY0, GC = 12.0, 19.0, 9.5
+GX0, GY0, GC = 12.0, 19.0, 8.5
 NEXT_Y, NEXT_H = 80.5, 4.0
 Y_CTRL, Y_IN, Y_OUT = 94.0, 104.5, 118.0
 JX0, JDX = 10.0, 12.0
+PX, PY_TRIG_IN, PY_ACT_IN = 72.0, 25.0, 37.0
+PY_TRIG_OUT, PY_ACT_OUT, PY_STATE = 57.5, 68.0, 78.5
 LANES = "ABCDEF"
 LANE_COL = ["#E0692E", "#C9A21E", "#2BAFB9", "#9670D8", "#4FA83F", "#D84F8C"]
 
@@ -85,6 +89,14 @@ add(text("IN", 3.4, Y_IN + 0.6, 1.2, FONT_BOLD, SOFT))
 add(f'<rect x="3" y="110.0" width="{W - 6:.2f}" height="12.6" rx="1.2" fill="{OUTBOX}"/>')
 for i, s in enumerate(LANES):
     add(text(s, JX0 + i * JDX, Y_OUT - 4.3, 1.6, FONT_BOLD, OUTINK))
+
+# ---- right column: poly jacks
+add(text("POLY", PX, GY0 - 4.6, 1.3, FONT_BOLD, SOFT))
+for y, s in [(PY_TRIG_IN, "TRIG IN"), (PY_ACT_IN, "ACT IN")]:
+    add(text(s, PX, y - 4.4, 1.45, FONT_BOLD, PCOL[s]))
+add(f'<rect x="{PX - 6.2:.2f}" y="{PY_TRIG_OUT - 7.0:.2f}" width="12.4" height="{PY_STATE - PY_TRIG_OUT + 11.6:.2f}" rx="1.2" fill="{OUTBOX}"/>')
+for y, s in [(PY_TRIG_OUT, "TRIG"), (PY_ACT_OUT, "ACT"), (PY_STATE, "STATE")]:
+    add(text(s, PX, y - 4.3, 1.45, FONT_BOLD, PCOL[s]))
 
 svg = (
     f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H}mm" '
