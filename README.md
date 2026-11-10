@@ -7,7 +7,7 @@ trigger sequencer; **Interlock**, an influence-grid trigger processor; and
 
 ## Francois Markovian
 
-A trigger sequencer (29 HP). One playhead walks an 8-step pattern
+A trigger sequencer (34 HP). One playhead walks an 8-step pattern
 with six trigger tracks, **A to F**. On every clock pulse it picks its next step
 from a hand-set **jump matrix**, then each track rolls its own chance for the
 step it lands on. The pattern stays recognisable but gets reshuffled, like a
@@ -149,7 +149,7 @@ Right-click: Clear grid, Load the guide's example, Randomise.
 
 ![Governor panel](docs/governor-preview.png)
 
-An 18 HP feedback controller. It **listens** to up to 6 trigger tracks, **measures**
+A 22 HP feedback controller. It **listens** to up to 6 trigger tracks, **measures**
 how busy and how changeable they are, and outputs **control CVs** that push the
 music back towards targets you set. Patch the CVs into whatever shapes the
 pattern (Francois Markovian's EVOLVE, Interlock's AMOUNT, Seuperclidean's

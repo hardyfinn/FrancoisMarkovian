@@ -8,11 +8,11 @@
 using inf::NT;
 
 namespace ilp {
-static const float GX0 = 12.f, GY0 = 19.f, GC = 9.5f;        // 6x6 grid of GC mm cells
-static const float NEXT_Y = 80.5f, NEXT_H = 4.f;               // "next step" meters
-static const float Y_CTRL = 94.f, Y_IN = 104.5f, Y_OUT = 118.f;
-static const float X_CLOCK = 10.f, X_RESET = 21.f, X_AMT = 33.f, X_AMT_CV = 44.f, X_MEM = 56.f;
-static const float MEMTXT_X = 63.f, MEMTXT_W = 12.f, MEMTXT_H = 4.4f;
+static const float GX0 = 12.f, GY0 = 20.5f, GC = 8.6f;        // 6x6 grid of GC mm cells
+static const float NEXT_Y = 77.f, NEXT_H = 4.f;               // "next step" meters
+static const float Y_CTRL = 92.2f, Y_IN = 105.2f, Y_OUT = 118.6f;
+static const float X_CLOCK = 9.f, X_RESET = 21.5f, X_AMT = 34.5f, X_AMT_CV = 45.5f, X_MEM = 57.f;
+static const float MEMTXT_X = 64.f, MEMTXT_W = 12.f, MEMTXT_H = 4.4f;
 static const float JX0 = 10.f, JDX = 12.f;                    // 6 jacks per row
 static const NVGcolor LANE_COL[NT] = {
 	nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0xE8, 0xC5, 0x47), nvgRGB(0x4C, 0xD6, 0xE0),

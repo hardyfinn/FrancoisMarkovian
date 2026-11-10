@@ -8,15 +8,15 @@
 using gov::NT;
 
 namespace gvp {
-static const float GRAPH_X = 5.f, GRAPH_W = 81.44f, GRAPH_H = 16.f;
+static const float GRAPH_X = 5.f, GRAPH_W = 101.76f, GRAPH_H = 16.f;
 static const float GRAPH_Y[2] = {15.f, 46.f};
 static const float ROW_Y[2] = {40.f, 71.f};
-static const float X_TGT = 9.f, X_TGT_CV = 19.5f, X_POL = 30.f;
-static const float OUT_X[5] = {44.f, 54.f, 64.f, 74.f, 84.f};  // CTRL, INV, ERR, over, under
-static const float Y_GLOBAL = 85.f, Y_IN = 108.f;
-static const float X_CLOCK = 9.f, X_RESET = 19.5f, X_WIN = 31.f, X_RESP = 43.f, X_WOB = 55.f;
-static const float WINTXT_X = 63.f, WINTXT_W = 22.f, WINTXT_H = 4.4f;
-static const float IN_X0 = 9.f, IN_DX = 11.f;
+static const float X_TGT = 10.f, X_TGT_CV = 23.f, X_POL = 34.5f;
+static const float OUT_X[5] = {49.f, 61.f, 73.f, 86.f, 100.f};  // CTRL, INV, ERR, over, under
+static const float Y_GLOBAL = 86.f, Y_IN = 110.f;
+static const float X_CLOCK = 10.f, X_RESET = 23.f, X_WIN = 37.f, X_RESP = 53.f, X_WOB = 69.f;
+static const float WINTXT_X = 80.f, WINTXT_W = 24.f, WINTXT_H = 4.4f;
+static const float IN_X0 = 10.f, IN_DX = 13.f;
 static const int WINDOWS[4] = {8, 16, 32, 64};
 static const int GHIST = 128;
 static const NVGcolor LOOP_COL[2] = {nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0x4C, 0xD6, 0xE0)};

@@ -51,9 +51,9 @@ def text(s, x, y, size, font=FONT_MED, fill=INK, anchor="middle", spacing=0.04):
 
 
 # layout, same numbers as src/Interlock.cpp
-GX0, GY0, GC = 12.0, 19.0, 9.5
-NEXT_Y, NEXT_H = 80.5, 4.0
-Y_CTRL, Y_IN, Y_OUT = 94.0, 104.5, 118.0
+GX0, GY0, GC = 12.0, 20.5, 8.6
+NEXT_Y, NEXT_H = 77.0, 4.0
+Y_CTRL, Y_IN, Y_OUT = 92.2, 105.2, 118.6
 JX0, JDX = 10.0, 12.0
 LANES = "ABCDEF"
 LANE_COL = ["#E0692E", "#C9A21E", "#2BAFB9", "#9670D8", "#4FA83F", "#D84F8C"]
@@ -62,29 +62,29 @@ parts = []
 add = parts.append
 add(f'<rect width="{W:.2f}" height="{H}" fill="{BG}"/>')
 add(text("INTERLOCK", W / 2, 7.6, 3.6, FONT_BOLD, INK, spacing=0.08))
-add(text("influence grid \u00b7 francois markovian", W / 2, 10.9, 1.8, FONT_MED, SOFT))
-add(f'<rect x="4" y="12.2" width="{W - 8:.2f}" height="0.35" fill="{ACCENT}"/>')
+add(text("influence grid \u00b7 francois markovian", W / 2, 11.2, 2.4, FONT_MED, SOFT))
+add(f'<rect x="4" y="12.6" width="{W - 8:.2f}" height="0.35" fill="{ACCENT}"/>')
 
 for i, s in enumerate(LANES):
     cx = GX0 + (i + 0.5) * GC
-    add(text(s, cx, GY0 - 1.5, 1.9, FONT_BOLD, INK))
+    add(text(s, cx, GY0 - 1.5, 2.9, FONT_BOLD, INK))
     add(f'<rect x="{GX0 - 4.8:.2f}" y="{GY0 + i * GC + 2.0:.2f}" width="0.8" height="{GC - 4.0:.2f}" rx="0.3" fill="{LANE_COL[i]}"/>')
-    add(text(s, GX0 - 2.3, GY0 + (i + 0.5) * GC + 0.7, 1.9, FONT_BOLD, INK))
-add(text("FIRES", GX0 - 3.0, GY0 - 1.5, 1.15, FONT_BOLD, SOFT))
-add(text("\u2192 NEXT STEP", GX0 + 6 * GC + 0.6, GY0 - 4.6, 1.15, FONT_BOLD, SOFT, anchor="end"))
-add(text("drag up to push, down to hold back \u00b7 double-click clears", GX0 + 3 * GC, GY0 + 6 * GC + 2.3, 1.3, FONT_MED, SOFT))
-add(text("NOW", GX0 - 3.0, NEXT_Y + NEXT_H / 2 + 0.5, 1.3, FONT_BOLD, SOFT))
+    add(text(s, GX0 - 2.4, GY0 + (i + 0.5) * GC + 1.0, 2.9, FONT_BOLD, INK))
+add(text("FIRES", GX0 - 4.6, GY0 - 1.5, 2.0, FONT_BOLD, SOFT))
+add(text("\u2192 NEXT STEP", GX0 + 6 * GC + 0.6, GY0 - 5.0, 2.2, FONT_BOLD, SOFT, anchor="end"))
+add(text("drag up to push, down to hold back \u00b7 double-click clears", W / 2, GY0 + 6 * GC + 3.1, 2.2, FONT_MED, SOFT))
+add(text("NOW", GX0 - 4.6, NEXT_Y + NEXT_H / 2 + 0.8, 2.2, FONT_BOLD, SOFT))
 
-add(f'<rect x="4" y="86.4" width="{W - 8:.2f}" height="0.35" fill="{ACCENT}"/>')
-for x, s in [(10, "CLOCK"), (21, "RESET"), (33, "AMOUNT"), (44, "CV"), (56, "MEMORY")]:
-    add(text(s, x, Y_CTRL - 4.7, 1.55, FONT_BOLD, INK))
-add(text("steps", 69.0, Y_CTRL - 4.7, 1.3, FONT_MED, SOFT))
+add(f'<rect x="4" y="83.2" width="{W - 8:.2f}" height="0.35" fill="{ACCENT}"/>')
+for x, s in [(9, "CLOCK"), (21.5, "RESET"), (34.5, "AMOUNT"), (45.5, "CV"), (57, "MEMORY")]:
+    add(text(s, x, Y_CTRL - 4.9, 2.9, FONT_BOLD, INK))
+add(text("steps", 70.0, Y_CTRL - 4.9, 2.2, FONT_MED, SOFT))
 for i, s in enumerate(LANES):
-    add(text(s, JX0 + i * JDX, Y_IN - 4.4, 1.6, FONT_BOLD, INK))
-add(text("IN", 3.4, Y_IN + 0.6, 1.2, FONT_BOLD, SOFT))
-add(f'<rect x="3" y="110.0" width="{W - 6:.2f}" height="12.6" rx="1.2" fill="{OUTBOX}"/>')
+    add(text(s, JX0 + i * JDX, Y_IN - 4.9, 2.9, FONT_BOLD, INK))
+add(text("IN", 3.5, Y_IN + 0.8, 2.2, FONT_BOLD, SOFT))
+add(f'<rect x="3" y="110.4" width="{W - 6:.2f}" height="13.2" rx="1.2" fill="{OUTBOX}"/>')
 for i, s in enumerate(LANES):
-    add(text(s, JX0 + i * JDX, Y_OUT - 4.3, 1.6, FONT_BOLD, OUTINK))
+    add(text(s, JX0 + i * JDX, Y_OUT - 4.8, 2.9, FONT_BOLD, OUTINK))
 
 svg = (
     f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H}mm" '
