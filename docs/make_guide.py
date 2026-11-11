@@ -118,13 +118,13 @@ footer {{ color: var(--soft); font-size: 14px; padding: 48px 0 64px; }}
 
 <h2 id="overview">Overview</h2>
 <p class="lead">The plugin holds four modules that work on their own and get more interesting together. Since 3.0 they link with three kinds of poly cable.</p>
-<div class="card"><h4>Francois Markovian <span class="mod fm">29 HP</span></h4>
+<div class="card"><h4>Francois Markovian <span class="mod fm">34 HP</span></h4>
 A trigger sequencer whose playhead <b>jumps</b> between 8 steps by chances you draw in a matrix. Six tracks, A to F, each with its own chance per step. Two snapshots (X and Y) and an Evolve control morph between them, Freeze locks what just played, and a clock divider output keeps other gear on the grid.</div>
 <div class="card il"><h4>Interlock <span class="mod il">16 HP</span></h4>
 A trigger processor where tracks <b>answer each other</b>: when one fires, it raises or lowers the others' chances on the next steps. It can hold hits back or add ghost hits.</div>
-<div class="card gv"><h4>Governor <span class="mod gv">18 HP</span></h4>
+<div class="card gv"><h4>Governor <span class="mod gv">22 HP</span></h4>
 A feedback controller that <b>listens</b> to the triggers, measures how busy (density) and how changeable (variety) they are, and outputs control CVs that push the music back towards targets you set.</div>
-<div class="card"><h4>Rewrite <span class="mod fm">24 HP</span></h4>
+<div class="card"><h4>Rewrite <span class="mod fm">28 HP</span></h4>
 A pattern grower: it takes one bar of each track and <b>rewrites</b> it every few bars by that track's own rules (a hit becomes hit-rest, a rest becomes rest-hit...). Parts grow at their own speeds, with lock, hold and rewind to steer them.</div>
 
 <h2 id="install">Install</h2>
