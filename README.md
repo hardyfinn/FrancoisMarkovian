@@ -4,7 +4,7 @@ A VCV Rack 2 plugin with four modules: **Francois Markovian**, a Markov jump
 trigger sequencer; **Interlock**, an influence-grid trigger processor;
 **Governor**, a feedback controller that holds density and variety on target;
 and **Rewrite**, which grows each track's pattern by its own rules (see below).
-Since 3.0 they link with three kinds of **poly cable** (see *Linking with poly cables*).
+Since 2.4 they link with three kinds of **poly cable** (see *Linking with poly cables*).
 
 ## Francois Markovian
 

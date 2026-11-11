@@ -117,7 +117,7 @@ footer {{ color: var(--soft); font-size: 14px; padding: 48px 0 64px; }}
 </nav>
 
 <h2 id="overview">Overview</h2>
-<p class="lead">The plugin holds four modules that work on their own and get more interesting together. Since 3.0 they link with three kinds of poly cable.</p>
+<p class="lead">The plugin holds four modules that work on their own and get more interesting together. Since 2.4 they link with three kinds of poly cable.</p>
 <div class="card"><h4>Francois Markovian <span class="mod fm">34 HP</span></h4>
 A trigger sequencer whose playhead <b>jumps</b> between 8 steps by chances you draw in a matrix. Six tracks, A to F, each with its own chance per step. Two snapshots (X and Y) and an Evolve control morph between them, Freeze locks what just played, and a clock divider output keeps other gear on the grid.</div>
 <div class="card il"><h4>Interlock <span class="mod il">16 HP</span></h4>
@@ -129,7 +129,7 @@ A pattern grower: it takes one bar of each track and <b>rewrites</b> it every fe
 
 <h2 id="install">Install</h2>
 <ol class="steps">
-  <li>Copy <code>FrancoisMarkovian-3.0.0-mac-arm64.vcvplugin</code> into your Rack 2 plugins folder (Rack: <i>Help &gt; Open user folder</i>, then <code>plugins-mac-arm64</code>). Replace any older version.</li>
+  <li>Copy <code>FrancoisMarkovian-2.5.0-mac-arm64.vcvplugin</code> into your Rack 2 plugins folder (Rack: <i>Help &gt; Open user folder</i>, then <code>plugins-mac-arm64</code>). Replace any older version.</li>
   <li>Restart Rack. The four modules appear under the brand <b>Haer</b>.</li>
 </ol>
 
