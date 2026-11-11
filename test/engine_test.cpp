@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cassert>
 #include <cmath>
+#include <algorithm>
 using namespace fm;
 
 static const float DT = 1.f / 48000.f;
@@ -235,6 +236,65 @@ int main() {
 		printf("%-30s", "divide 4, offset 2");
 		for (int i = 0; i < 16; i++) { p.process(DT, true, false); putchar(p.divTrig.high ? 'x' : '.'); for (int k = 0; k < 2400; k++) p.process(DT, false, false); }
 		printf("\n");
+	}
+	// 12. Nudge: Gentle touches at most 3 cells, Wild at most 5, each by at most 50
+	//     points (before its row rescales); rows still add up to 100%
+	{
+		for (int wild = 0; wild < 2; wild++) {
+			int maxCells = wild ? 5 : 3, seenMax = 0;
+			Engine e;
+			for (int k = 0; k < 2000; k++) {
+				Snapshot before = e.snap[0];
+				e.snap[0].nudge(e.rng, maxCells);
+				int rows = 0;
+				for (int r = 0; r < NS; r++) {
+					assert(std::fabs(rowSum(e.snap[0], r) - 1.f) < 1e-4f);
+					bool changed = false;
+					for (int c = 0; c < NS; c++) if (std::fabs(e.snap[0].w[r][c] - before.w[r][c]) > 1e-6f) changed = true;
+					rows += changed;
+				}
+				assert(rows <= maxCells);
+				if (rows > seenMax) seenMax = rows;
+				if (k % 50 == 0) e.snap[0].straight();  // keep it close to straight, like real use
+			}
+			assert(seenMax >= 2);
+		}
+		// one cell from straight: it moves by at most 50 points
+		for (int k = 0; k < 2000; k++) {
+			Engine e1; e1.rng.seed(k + 1);
+			e1.snap[0].nudge(e1.rng, 1);
+			float biggest = 0.f;
+			for (int r = 0; r < NS; r++)
+				for (int c = 0; c < NS; c++) {
+					float was = c == (r + 1) % NS ? 1.f : 0.f;
+					biggest = std::max(biggest, std::fabs(e1.snap[0].w[r][c] - was));
+				}
+			assert(biggest <= 0.5f + 1e-4f);
+		}
+		Engine p; p.snap[0].nudge(p.rng, 3); printRun("gentle nudge", p, 32);
+		Engine q; q.snap[0].nudge(q.rng, 5); printRun("wild nudge", q, 32);
+	}
+	// 13. Mutes silence a track's output but not its dice, jump size and phrase trigger
+	{
+		Engine e;
+		e.muted = 0x1;  // A muted
+		bool sawPhrase = false;
+		for (int i = 0; i < 32; i++) {
+			e.process(DT, true, false);
+			if (e.step == 0) { assert(e.lastMask & 1); assert(!(e.lastOut & 1)); assert(!e.trig[0].high); }
+			if (e.step == 4) { assert(e.lastOut & 2); assert(e.trig[1].high); }
+			assert(e.lastJump == 0);  // straight: always the next step
+			if (i % NS == 0) { assert(e.phraseTrig.high); sawPhrase = true; }
+			else assert(!e.phraseTrig.high);
+			for (int k = 0; k < 2400; k++) e.process(DT, false, false);
+		}
+		assert(sawPhrase);
+		// a jump from step 1 to step 4 is +2, from 4 back to 1 is -4 -> folded to +4
+		Engine j;
+		for (int c = 0; c < NS; c++) { j.snap[0].w[0][c] = c == 3 ? 1.f : 0.f; j.snap[0].w[3][c] = c == 0 ? 1.f : 0.f; }
+		tick(j); assert(j.step == 0);
+		tick(j); assert(j.step == 3 && j.lastJump == 2);
+		tick(j); assert(j.step == 0 && j.lastJump == 4);
 	}
 	printf("all engine tests passed\n");
 	return 0;

@@ -1,9 +1,10 @@
 # Francois Markovian
 
-A VCV Rack 2 plugin with three modules: **Francois Markovian**, a Markov jump
-trigger sequencer; **Interlock**, an influence-grid trigger processor; and
-**Governor**, a feedback controller that holds density and variety on target
-(see below).
+A VCV Rack 2 plugin with four modules: **Francois Markovian**, a Markov jump
+trigger sequencer; **Interlock**, an influence-grid trigger processor;
+**Governor**, a feedback controller that holds density and variety on target;
+and **Rewrite**, which grows each track's pattern by its own rules (see below).
+Since 3.0 they link with three kinds of **poly cable** (see *Linking with poly cables*).
 
 ## Francois Markovian
 
@@ -76,12 +77,24 @@ for syncing other gear.
 | **GATE** | Freeze gate |
 | **A to F** | 5 ms triggers, 10 V |
 | **DIV** | Divided clock, 5 ms triggers |
+| **MUTE CV** | Poly: channel 1 = A ... 6 = F. 10 V mutes that track (on top of the buttons) |
+| **TRIG** (poly out) | A to F on 6 channels |
+| **ACT** (poly out) | 10 V for each playing track, 0 V for each muted one |
+| **STATE** (poly out) | 1 step (0 V = step 1, 1 V a step), 2 Evolve (0 to 10 V), 3 freeze gate, 4 jump size (0 V = to the next step, ±1.25 V a step), 5 tracks fired (0 to 10 V), 6 phrase start (a trigger every 8 clocks from Reset) |
+
+## Mutes
+
+**Click a track's letter** (left of the trigger grid) to mute it: the letter turns
+into a dark **M** and its row dims. A muted track still rolls its dice, so it
+comes back in step when you unmute it. Mutes go out on **ACT**, so Interlock,
+Rewrite and Governor all know the track is off.
 
 ## Right-click menu
 
 - **Straight (step by step)**: reset the matrix of X, Y or both.
-- **Randomise**: *Gentle* keeps "go to the next step" strongest in every row
-  and adds one or two jumps. *Wild* puts any chance anywhere.
+- **Randomise (nudge)**: small, controlled changes to the jump matrix of X or Y.
+  *Gentle* moves 1 to 3 cells, *Wild* 1 to 5, each by 10 to 50 points; the
+  touched rows rescale to 100 like a drag. Press it again to nudge further.
 - **Copy X to Y / Copy Y to X**: copies the matrix and triggers. A good way to start Y as a variation of X.
 - **Clear triggers**: for X, Y or both.
 
@@ -135,6 +148,11 @@ The **NOW** meters under the grid show how much each track is being pushed on th
 | **MEMORY** | 0 = an influence lasts only the next step. 1 to 4 = it lasts that many extra steps, fading out evenly (memory 2: 100%, 67%, 33%) |
 | **IN A to F** | Incoming triggers |
 | **OUT A to F** | 5 ms triggers |
+| **TRIG IN** (poly) | A to F in one cable. A mono IN jack replaces its channel. With it patched, channels that aren't there are tracks that don't exist |
+| **ACT IN** (poly) | Muted tracks pass nothing, get no ghost hits and push nothing. Unpatched: all playing |
+| **TRIG** (poly out) | A to F |
+| **ACT** (poly out) | ACT IN passed on |
+| **STATE** (poly out) | The NOW meter of each track, ±5 V |
 
 Influences add up, so two tracks each pushing E by +50 give E a full 100%.
 
@@ -164,7 +182,14 @@ Over the last **WINDOW** clocks (8, 16, 32 or 64, default 16):
   step. 0% = an exact repeat, 100% = nothing in common. (It needs two full
   windows of history before it starts measuring.)
 
-Only **connected** trigger inputs count (all six if none are patched).
+Only **connected** trigger inputs count (all six if none are patched). With the
+poly **TRIG** input patched, its channels are the tracks. Tracks muted on the
+poly **ACT** input drop out of both measurements, so muting the hats in a
+breakdown doesn't make Governor pile hits onto the other tracks. If every track
+is muted, the controls hold still.
+
+The poly **STATE** output carries 1 density, 2 variety (0 to 10 V), 3 density
+error, 4 variety error (±5 V), 5 density control and 6 variety control (0 to 10 V).
 
 ## The two loops
 
@@ -205,11 +230,90 @@ Right-click: *Centre both controls (5 V)*.
 - **Interplay on demand:** variety CTRL → Interlock AMOUNT CV, so the tracks start
   answering each other more when the groove has been static for a while.
 
+# Rewrite
+
+![Rewrite panel](docs/rewrite-preview.png)
+
+A 24 HP pattern grower. It takes one bar of triggers for each track and
+**rewrites** it every few bars: every hit and every rest is swapped for that
+track's replacement pattern, and the result is folded back into one bar. The
+parts grow and mutate on their own clocks, so the groove keeps moving without
+going random.
+
+## How it works
+
+1. **Seed.** Until you press **SEED**, triggers pass straight through (the
+   displays show them dimmed). SEED takes the last bar (16 steps, or 8 from the
+   right-click menu) of every track as its starting phrase.
+2. **Grow.** At a track's rewrite time each hit becomes the **HIT BECOMES**
+   pattern and each rest the **REST BECOMES** pattern. **AMOUNT** is the chance
+   each step is swapped, so growth is uneven.
+3. **Fit.** The grown phrase is longer than a bar. **FIT** chooses how it comes
+   back to one bar: *WIN* keeps a one-bar slice (where, set by **WINDOW** + CV),
+   *SQZ* samples the whole thing evenly into one bar.
+4. **Remember.** The last 16 generations are kept for **REWIND**.
+
+The default rules (hit → hit rest, rest → rest hit) are the Thue-Morse
+pattern, which never settles into a plain repeat.
+
+## Per track (rows A to F)
+
+| Control | What it does |
+|---|---|
+| **HIT BECOMES** | Click to step through 8 pictures: ● (stays), ●·, ●●, ●·●, ●●● (roll), ·● (pushed late), ●··, · (drops out). Shift-click goes back |
+| **REST BECOMES** | ·  (stays), ··, ·●, ●·, ···, ·●·, ··●, ● (fills in) |
+| **EVERY** | Rewrite every 1, 2, 4 or 8 bars (click to change) |
+| **AMOUNT** | 0 to 100% chance each step is rewritten (default 50%) |
+| **LOCK** | Stop this track growing and keep what it has. REWIND leaves it alone too |
+| **GENERATIONS** | The last 4 generations, newest at the bottom, with the playhead. Top right: *g* = generations since the seed |
+| **OUT** | 5 ms triggers |
+
+## Global
+
+| Control | What it does |
+|---|---|
+| **CLOCK**, **RESET** | Same clock as the rest of the chain. Reset: the next clock plays step 1, the phrase is kept |
+| **SEED** + trigger | Take the last bar coming in as the new start. The light shows Rewrite is seeded |
+| **REWRITE NOW** + gate | Grow every unlocked track on the next bar line. While the gate is high, every bar line grows |
+| **HOLD** + gate | No growth while on |
+| **REWIND** + trigger | Back one generation. **Hold the button for a second** to go back to the seed |
+| **WINDOW** + CV, **FIT** | See *Fit* above |
+| **TRIG**, **ACT** (poly in) | Triggers and mutes. Muted tracks are silent and **freeze**; they carry on from there when unmuted. With TRIG patched, missing channels are tracks that don't exist |
+| **TRIG**, **ACT** (poly out) | A to F, and ACT passed on |
+| **GEN** | A trigger whenever any track grew |
+| **STATE** (poly out) | 1 to 6: how far each track has moved from its seed (0 to 10 V). 7: generations (0.1 V each) |
+
+Right-click: Length (8 or 16 steps), Seed now, Rewind all tracks to the seed,
+Unseed (pass triggers through again), Copy a track's rules to all tracks.
+
+# Linking with poly cables
+
+Every module speaks the same three poly cables, colour-coded on the panels:
+
+| Cable | Colour | Channels | What it carries |
+|---|---|---|---|
+| **TRIG** | orange | 6 (A to F) | Triggers only, so it's safe to patch into any poly drum module |
+| **ACT** | green | 6 (A to F) | 10 V = playing, 0 V = muted. Starts at Markovian's mute letters |
+| **STATE** | blue | 6 or 7 | Each module's inner values as CVs (listed per module above, and in each jack's tooltip). Split them with VCV Split |
+
+**The basic chain** (one clock and reset into every module): Markovian TRIG →
+Interlock TRIG IN; Interlock TRIG → Rewrite TRIG; Rewrite TRIG → Governor TRIG.
+Run ACT along the same path. Rewrite's mono outs go to the drums.
+
+- **Grows only when stale:** Governor **SAME** → Rewrite **REWRITE NOW**, Governor
+  **VARIED** → Rewrite **HOLD**. Window 32, variety target about 30%.
+- **Breakdown and return:** mute the kick on Markovian for 8 bars (Governor
+  stops counting it), and on the bar it returns, hold Rewrite's REWIND button
+  for a second so the drop lands on the bare seed.
+- **Movement into sound:** Markovian STATE channel 4 (jump size) through Split →
+  a filter or Just Friends' TIME, so big jumps sound different from steady steps.
+
 # Building
 
 GitHub Actions tests the engine and builds the Apple Silicon version on every
 push to main (see `.github/workflows/build.yml`). The `.vcvplugin` file appears
-on the repo's **latest** release page. Locally: download the Rack SDK and run
+on the repo's **latest** release page (pushes to other branches can be built
+from the Actions tab with *Run workflow*). Locally: download the Rack SDK and run
 `make dist RACK_DIR=/path/to/Rack-SDK`.
 
 The panel is drawn by `res/make_panel.py` (needs `pip install fonttools`).
@@ -220,3 +324,6 @@ Interlock's engine (`src/InfluenceEngine.hpp`) is checked by `test/influence_tes
 and its panel is drawn by `res/make_panel_interlock.py`.
 Governor's engine (`src/GovernorEngine.hpp`) is checked by `test/governor_test.cpp`,
 including closed loops against a simulated band, and its panel by `res/make_panel_governor.py`.
+Rewrite's engine (`src/RewriteEngine.hpp`) is checked by `test/rewrite_test.cpp`
+(seeding, the rules, Window and Squeeze, EVERY, LOCK, HOLD, mutes, REWIND), and
+its panel is drawn by `res/make_panel_rewrite.py`.

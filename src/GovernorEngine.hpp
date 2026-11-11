@@ -55,6 +55,7 @@ struct Loop {
 struct Engine {
 	int window = 16;     // 8, 16, 32 or 64 clocks
 	uint8_t trackMask = 0x3F;  // which inputs count (the connected ones)
+	bool allMuted = false;     // every listened track is muted: hold the controls where they are
 	float response = 0.5f, wobble = 0.f;
 	Loop dens, vari;
 
@@ -104,9 +105,11 @@ struct Engine {
 			hist[pos] = cur;
 			pos = (pos + 1) % HIST;
 			if (filled < HIST) filled++;
-			measure();
-			dens.update(response, wobble);
-			if (filled >= 2 * window) vari.update(response, wobble);  // needs two full windows
+			if (!allMuted) {
+				measure();
+				dens.update(response, wobble);
+				if (filled >= 2 * window) vari.update(response, wobble);  // needs two full windows
+			}
 		}
 		started = true;
 		cur = 0;

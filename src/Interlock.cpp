@@ -8,12 +8,15 @@
 using inf::NT;
 
 namespace ilp {
-static const float GX0 = 12.f, GY0 = 19.f, GC = 9.5f;        // 6x6 grid of GC mm cells
+static const float GX0 = 12.f, GY0 = 19.f, GC = 8.5f;        // 6x6 grid of GC mm cells
 static const float NEXT_Y = 80.5f, NEXT_H = 4.f;               // "next step" meters
 static const float Y_CTRL = 94.f, Y_IN = 104.5f, Y_OUT = 118.f;
 static const float X_CLOCK = 10.f, X_RESET = 21.f, X_AMT = 33.f, X_AMT_CV = 44.f, X_MEM = 56.f;
 static const float MEMTXT_X = 63.f, MEMTXT_W = 12.f, MEMTXT_H = 4.4f;
 static const float JX0 = 10.f, JDX = 12.f;                    // 6 jacks per row
+// right column: poly jacks. Inputs on the panel, outputs in the dark box
+static const float PX = 72.f, PY_TRIG_IN = 25.f, PY_ACT_IN = 37.f;
+static const float PY_TRIG_OUT = 57.5f, PY_ACT_OUT = 68.f, PY_STATE = 78.5f;
 static const NVGcolor LANE_COL[NT] = {
 	nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0xE8, 0xC5, 0x47), nvgRGB(0x4C, 0xD6, 0xE0),
 	nvgRGB(0xB3, 0x8C, 0xF0), nvgRGB(0x7C, 0xD3, 0x6B), nvgRGB(0xF0, 0x6E, 0xA8)};
@@ -36,10 +39,15 @@ struct Interlock : Module {
 		RESET_INPUT,
 		AMOUNT_INPUT,
 		ENUMS(TRIG_INPUT, NT),
+		TRIG_POLY_INPUT,
+		ACT_INPUT,
 		INPUTS_LEN
 	};
 	enum OutputId {
 		ENUMS(TRIG_OUTPUT, NT),
+		TRIG_POLY_OUTPUT,
+		ACT_OUTPUT,
+		STATE_OUTPUT,
 		OUTPUTS_LEN
 	};
 	enum LightId {
@@ -48,7 +56,7 @@ struct Interlock : Module {
 
 	inf::Engine engine;
 	fm::Rng uiRng;
-	dsp::SchmittTrigger clockTrigger, resetTrigger, inTrigger[NT];
+	dsp::SchmittTrigger clockTrigger, resetTrigger, inTrigger[NT], polyTrigger[NT];
 	float flash[NT] = {};
 	uint8_t lastFired = 0;
 
@@ -64,6 +72,11 @@ struct Interlock : Module {
 			configInput(TRIG_INPUT + y, string::f("Track %c trigger", 'A' + y));
 			configOutput(TRIG_OUTPUT + y, string::f("Track %c trigger", 'A' + y));
 		}
+		configInput(TRIG_POLY_INPUT, "Triggers A to F (poly). A mono input above replaces its channel");
+		configInput(ACT_INPUT, "Active tracks (poly: 10 V = playing, 0 V = muted). Unpatched: all playing");
+		configOutput(TRIG_POLY_OUTPUT, "Triggers A to F (poly, 6 channels)");
+		configOutput(ACT_OUTPUT, "Active tracks, passed through (poly, 6 channels)");
+		configOutput(STATE_OUTPUT, "State (poly): the NOW meter of each track, A to F (+-5 V)");
 		engine.rng.seed(random::u64());
 		uiRng.seed(random::u64());
 	}
@@ -82,9 +95,26 @@ struct Interlock : Module {
 
 		bool clockEdge = clockTrigger.process(inputs[CLOCK_INPUT].getVoltage(), 0.1f, 1.f);
 		bool resetEdge = resetTrigger.process(inputs[RESET_INPUT].getVoltage(), 0.1f, 1.f);
+		// which tracks play: missing poly channels don't exist, ACT mutes the rest
+		bool polyIn = inputs[TRIG_POLY_INPUT].isConnected();
+		int polyCh = inputs[TRIG_POLY_INPUT].getChannels();
+		int actCh = inputs[ACT_INPUT].getChannels();
+		uint8_t active = 0;
+		float act[NT];
+		for (int y = 0; y < NT; y++) {
+			bool exists = !polyIn || y < polyCh || inputs[TRIG_INPUT + y].isConnected();
+			bool on = y >= actCh || inputs[ACT_INPUT].getVoltage(y) >= 1.f;
+			act[y] = on ? 10.f : 0.f;
+			if (exists && on) active |= 1 << y;
+		}
+		engine.active = active;
+
 		bool in[NT], any = false;
 		for (int y = 0; y < NT; y++) {
-			in[y] = inTrigger[y].process(inputs[TRIG_INPUT + y].getVoltage(), 0.1f, 1.f);
+			// a mono jack replaces its poly channel
+			float v = inputs[TRIG_INPUT + y].isConnected() ? inputs[TRIG_INPUT + y].getVoltage()
+				: (y < polyCh ? inputs[TRIG_POLY_INPUT].getVoltage(y) : 0.f);
+			in[y] = inTrigger[y].process(v, 0.1f, 1.f);
 			any = any || in[y];
 		}
 		// no clock patched: the first input trigger of a step starts it
@@ -96,8 +126,14 @@ struct Interlock : Module {
 		engine.process(args.sampleTime, clockEdge, resetEdge, in);
 
 		uint8_t fresh = newStep ? engine.curMask : (uint8_t) (engine.curMask & ~before);
+		outputs[TRIG_POLY_OUTPUT].setChannels(NT);
+		outputs[ACT_OUTPUT].setChannels(NT);
+		outputs[STATE_OUTPUT].setChannels(NT);
 		for (int y = 0; y < NT; y++) {
 			outputs[TRIG_OUTPUT + y].setVoltage(engine.out[y].high ? 10.f : 0.f);
+			outputs[TRIG_POLY_OUTPUT].setVoltage(engine.out[y].high ? 10.f : 0.f, y);
+			outputs[ACT_OUTPUT].setVoltage(act[y], y);
+			outputs[STATE_OUTPUT].setVoltage(clamp(5.f * engine.delta[y], -5.f, 5.f), y);
 			if (fresh & (1 << y)) flash[y] = 0.12f;
 			else if (flash[y] > 0.f) flash[y] -= args.sampleTime;
 		}
@@ -302,6 +338,12 @@ struct InterlockWidget : ModuleWidget {
 		mr->box.size = mm2px(Vec(MEMTXT_W, MEMTXT_H));
 		mr->module = module;
 		addChild(mr);
+
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(PX, PY_TRIG_IN)), module, I::TRIG_POLY_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(PX, PY_ACT_IN)), module, I::ACT_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(PX, PY_TRIG_OUT)), module, I::TRIG_POLY_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(PX, PY_ACT_OUT)), module, I::ACT_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(PX, PY_STATE)), module, I::STATE_OUTPUT));
 
 		for (int y = 0; y < NT; y++) {
 			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(JX0 + y * JDX, Y_IN)), module, I::TRIG_INPUT + y));

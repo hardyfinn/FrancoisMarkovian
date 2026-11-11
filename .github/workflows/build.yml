@@ -30,6 +30,7 @@ jobs:
           c++ -std=c++11 -O2 -o test/engine_test test/engine_test.cpp && test/engine_test
           c++ -std=c++11 -O2 -o test/influence_test test/influence_test.cpp && test/influence_test
           c++ -std=c++11 -O2 -o test/governor_test test/governor_test.cpp && test/governor_test
+          c++ -std=c++11 -O2 -o test/rewrite_test test/rewrite_test.cpp && test/rewrite_test
       - name: Build
         run: make dist RACK_DIR="$RUNNER_TEMP/Rack-SDK" -j3
       - uses: actions/upload-artifact@v4

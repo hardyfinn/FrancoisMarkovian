@@ -34,6 +34,8 @@ struct Engine {
 	int memory = 0;            // 0..MAX_MEM
 	float trigLen = 0.005f;    // 5 ms
 	float window = 0.002f;     // ghost hits are rolled 2 ms after the clock
+	uint8_t active = 0x3F;     // bit y = track y is playing; a muted (or missing) track
+	                           // passes nothing, gets no ghost hits and pushes nothing
 
 	uint8_t hist[MAX_MEM + 1] = {};  // hist[0] = tracks fired on the previous step, hist[1] the one before...
 	uint8_t curMask = 0;       // tracks fired on this step so far
@@ -87,7 +89,7 @@ struct Engine {
 				if (m & (1 << x))
 					for (int y = 0; y < NT; y++) delta[y] += grid[x][y] * f;
 		}
-		for (int y = 0; y < NT; y++) delta[y] *= amount;
+		for (int y = 0; y < NT; y++) delta[y] = (active & (1 << y)) ? delta[y] * amount : 0.f;
 	}
 
 	float chanceWith(int y, bool input) const { return fm::clamp01((input ? 1.f : 0.f) + delta[y]); }
@@ -118,6 +120,7 @@ struct Engine {
 	}
 
 	void input(int y) {
+		if (!(active & (1 << y))) return;  // muted: nothing gets through
 		if (!inStep) {
 			// no clock yet: pass straight through
 			fire(y);
@@ -133,6 +136,7 @@ struct Engine {
 		ghostsDone = true;
 		for (int y = 0; y < NT; y++) {
 			if (gotInput & (1 << y)) continue;
+			if (!(active & (1 << y))) continue;
 			float p = chanceWith(y, false);
 			if (p > 0.f && rng.uniform() < p) fire(y);
 		}
