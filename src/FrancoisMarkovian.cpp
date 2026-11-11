@@ -12,14 +12,15 @@ namespace fmp {
 // left: the jump matrix (narrow cells, 65% as wide as they are tall)
 static const float MX0 = 11.f, MY0 = 18.f, MCW = 8.f, MCH = 9.9f;
 // right: the trigger grid
-static const float TX0 = 85.5f, TY0 = 18.f, TCW = 7.f, TCH = 7.6f;
-static const float EDIT_X = 125.5f, EDIT_Y = 70.f, EDIT_W = 16.f, EDIT_H = 3.6f;
-static const float Y_ROW1 = 85.f, Y_ROW2 = 98.f, Y_OUT = 114.5f;
-static const float X_COL[6] = {86.5f, 97.5f, 108.5f, 119.5f, 130.5f, 141.5f};
-static const float DIVTXT_X = 104.f, DIVTXT_W = 18.f, DIVTXT_H = 4.4f;
-static const float OUT_X0 = 85.5f, OUT_DX = 54.5f / 6.f;  // 7 outputs: A..F and the divider
+static const float TX0 = 85.5f, TY0 = 18.f, TCW = 10.f, TCH = 7.6f;
+static const float EDIT_X = 149.5f, EDIT_Y = 70.f, EDIT_W = 16.f, EDIT_H = 3.6f;
+static const float Y_ROW1 = 85.f, Y_ROW2 = 98.f, Y_OUT = 116.f;
+static const float X_COL[6] = {90.f, 104.f, 118.f, 132.f, 146.f, 160.f};
+static const float DIVTXT_X = 113.f, DIVTXT_W = 22.f, DIVTXT_H = 4.4f;
+static const float OUT_X0 = 89.f, OUT_DX = 71.f / 6.f;  // 7 outputs: A..F and the divider
 // bottom left: mute CV in, then the poly outputs
-static const float X_MUTE_CV = 14.f, X_POLY[3] = {34.f, 50.f, 66.f};  // TRIG, ACT, STATE
+static const float X_MUTE_CV = 14.f;
+static const float X_POLY[3] = {34.f, 50.f, 66.f};  // TRIG, ACT, STATE
 // mute tabs: the coloured track letters left of the trigger grid
 static const float MUTE_X = TX0 - 5.4f, MUTE_W = 5.f;
 static const int STATE_CH = 6;

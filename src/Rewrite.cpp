@@ -9,15 +9,15 @@ using rw::NT;
 using rw::MAXL;
 
 namespace rwp {
-static const float ROW_Y0 = 18.5f, ROW_H = 12.5f;                // track rows A..F
-static const float HIT_X = 8.5f, REST_X = 24.f, CARD_W = 14.f, CARD_H = 9.f;
-static const float EVERY_X = 39.5f, EVERY_W = 9.f;
-static const float X_AMT = 53.5f, X_LOCK = 61.5f;
-static const float GEN_X = 66.5f, GEN_W = 41.f, GEN_H = 11.f;     // generations display
-static const float X_OUT = 114.f;
-static const float Y_G1 = 105.5f, Y_G2 = 117.5f;                  // global rows
-static const float X_G1[10] = {7.f, 17.5f, 29.f, 38.f, 50.f, 59.f, 71.f, 80.f, 92.f, 101.f};
-static const float X_G2[9] = {7.f, 17.5f, 28.f, 40.f, 50.f, 63.f, 74.f, 85.f, 96.f};
+static const float ROW_Y0 = 19.f, ROW_H = 12.2f;                // track rows A..F
+static const float HIT_X = 9.f, REST_X = 26.f, CARD_W = 15.f, CARD_H = 9.f;
+static const float EVERY_X = 43.f, EVERY_W = 11.f;
+static const float X_AMT = 62.f, X_LOCK = 74.5f;
+static const float GEN_X = 80.f, GEN_W = 45.f, GEN_H = 11.f;     // generations display
+static const float X_OUT = 133.f;
+static const float Y_G1 = 104.5f, Y_G2 = 118.f;                  // global rows
+static const float X_G1[10] = {8.f, 21.f, 35.f, 45.f, 62.f, 72.f, 91.f, 101.f, 120.f, 130.f};
+static const float X_G2[9] = {8.f, 21.f, 32.f, 49.f, 61.f, 82.f, 95.f, 108.f, 121.f};
 static const int GEN_ROWS = 4;
 static const NVGcolor LANE_COL[NT] = {
 	nvgRGB(0xF0, 0x7A, 0x3E), nvgRGB(0xE8, 0xC5, 0x47), nvgRGB(0x4C, 0xD6, 0xE0),
